@@ -17,8 +17,8 @@ export default function DashboardScreen({ navigation }) {
             setUser(user);
         } catch (error) {
             console.log('Error getting user:', error);
-        }
-    };
+        }d
+    };``
 
     const handleSignOut = async () => {
         try {

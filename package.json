@@ -12,9 +12,11 @@
     "@expo/vector-icons": "latest",
     "@google/generative-ai": "latest",
     "@insforge/sdk": "latest",
+    "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/datetimepicker": "^8.5.1",
     "@react-navigation/native": "latest",
     "@react-navigation/native-stack": "latest",
+    "@supabase/supabase-js": "^2.89.0",
     "expo": "latest",
     "expo-auth-session": "~7.0.10",
     "expo-av": "latest",
@@ -23,6 +25,7 @@
     "expo-linear-gradient": "latest",
     "expo-linking": "latest",
     "expo-status-bar": "latest",
+    "expo-video": "^3.0.15",
     "expo-web-browser": "latest",
     "react": "latest",
     "react-dom": "latest",
@@ -31,7 +34,10 @@
     "react-native-safe-area-context": "latest",
     "react-native-screens": "latest",
     "react-native-svg": "latest",
-    "react-native-web": "latest"
+    "react-native-url-polyfill": "^3.0.0",
+    "react-native-web": "latest",
+    "react-native-web-webview": "^1.0.2",
+    "react-native-youtube-iframe": "^2.4.1"
   },
   "devDependencies": {
     "@babel/core": "latest"
