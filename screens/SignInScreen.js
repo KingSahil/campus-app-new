@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import * as AuthSession from 'expo-auth-session';
-import { supabase } from '../lib/supabase';
+import { supabase, createProfile, getProfile } from '../lib/supabase';
 
 const GoogleIcon = () => (
     <Svg width="24" height="24" viewBox="0 0 24 24">
@@ -22,8 +22,14 @@ export default function SignInScreen({ navigation }) {
     );
     React.useEffect(() => {
         const { data: listener } = supabase.auth.onAuthStateChange(
-            (event, session) => {
-                if (session) {
+            async (event, session) => {
+                if (session?.user) {
+                    const { data: profile } = await getProfile(session.user.id);
+
+                    if (!profile) {
+                        await createProfile(session.user);
+                    }
+
                     navigation.replace('Profile');
                 }
             }
