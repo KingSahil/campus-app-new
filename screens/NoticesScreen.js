@@ -112,7 +112,12 @@ const NoticesScreen = ({ navigation }) => {
       {/* Header */}
       <View className="px-4 pb-2 pt-4">
         <View className="flex-row items-center justify-between h-12 mb-2">
-          <View className="w-12" />
+          <TouchableOpacity 
+            className="w-12 h-12 items-center justify-center"
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="rgba(255,255,255,0.9)" />
+          </TouchableOpacity>
           <TouchableOpacity className="w-12 h-12 items-center justify-center">
             <Ionicons name="search" size={24} color="rgba(255,255,255,0.9)" />
           </TouchableOpacity>
