@@ -15,6 +15,10 @@ import AttendanceAdminScreen from './screens/AttendanceAdminScreen';
 import ManageAttendanceScreen from './screens/ManageAttendanceScreen';
 import AttendanceListScreen from './screens/AttendanceListScreen';
 import NoticesScreen from './screens/NoticesScreen';
+import LearningHubScreen from './screens/LearningHubScreen';
+import SubjectTopicsScreen from './screens/SubjectTopicsScreen';
+import VideosListScreen from './screens/VideosListScreen';
+import LectureVideoScreen from './screens/LectureVideoScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -33,7 +37,7 @@ export default function App() {
               contentStyle: { backgroundColor: Platform.OS === 'android' ? 'transparent' : 'black' },
               animation: 'fade', // Optional: nice transition
             }}
-            initialRouteName="SignIn"
+            initialRouteName="Profile"
           >
             <Stack.Screen name="SignIn" component={SignInScreen} />
             <Stack.Screen name="Profile" component={SignUpScreen} />
@@ -45,6 +49,10 @@ export default function App() {
             <Stack.Screen name="ManageAttendance" component={ManageAttendanceScreen} />
             <Stack.Screen name="AttendanceList" component={AttendanceListScreen} />
             <Stack.Screen name="Notices" component={NoticesScreen} />
+            <Stack.Screen name="LearningHub" component={LearningHubScreen} />
+            <Stack.Screen name="SubjectTopics" component={SubjectTopicsScreen} />
+            <Stack.Screen name="VideosList" component={VideosListScreen} />
+            <Stack.Screen name="LectureVideo" component={LectureVideoScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </View>

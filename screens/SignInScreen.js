@@ -1,8 +1,9 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Platform } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Platform, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
+import { auth0 } from '../lib/auth0';
 
 const GoogleIcon = () => (
     <Svg width="24" height="24" viewBox="0 0 24 24">
@@ -14,11 +15,44 @@ const GoogleIcon = () => (
 );
 
 export default function SignInScreen({ navigation }) {
+    const [loading, setLoading] = React.useState(false);
+
+    useEffect(() => {
+        checkSession();
+    }, []);
+
+    const checkSession = async () => {
+        try {
+            const { data: { session } } = await auth0.getSession();
+            console.log('Session check:', session);
+            if (session) {
+                navigation.replace('Profile');
+            }
+        } catch (error) {
+            console.log('No active session:', error);
+        }
+    };
 
     const handleGoogleSignIn = async () => {
-        // TODO: Implement InsForge authentication once documentation is available
-        // For now, navigate directly to Profile screen
-        navigation.navigate('Profile');
+        try {
+            setLoading(true);
+            console.log('Starting Google sign-in...');
+            
+            const { user, error } = await auth0.signInWithGoogle();
+            console.log('Sign-in result:', { user, error });
+
+            if (error) throw error;
+
+            if (user) {
+                console.log('Redirecting to Profile...');
+                navigation.replace('Profile');
+            }
+        } catch (error) {
+            console.error('Sign in error:', error);
+            Alert.alert('Sign In Error', error.message || 'Failed to sign in with Google');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -46,9 +80,16 @@ export default function SignInScreen({ navigation }) {
                             style={styles.googleButton}
                             onPress={handleGoogleSignIn}
                             activeOpacity={0.9}
+                            disabled={loading}
                         >
-                            <GoogleIcon />
-                            <Text style={styles.googleButtonText}>Sign in with Google</Text>
+                            {loading ? (
+                                <ActivityIndicator color="#1e293b" />
+                            ) : (
+                                <>
+                                    <GoogleIcon />
+                                    <Text style={styles.googleButtonText}>Sign in with Google</Text>
+                                </>
+                            )}
                         </TouchableOpacity>
                     </View>
 

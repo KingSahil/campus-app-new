@@ -1,9 +1,34 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Platform, Image } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Platform, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { auth0 } from '../lib/auth0';
 
 export default function DashboardScreen({ navigation }) {
+    const [user, setUser] = React.useState(null);
+
+    useEffect(() => {
+        getUserInfo();
+    }, []);
+
+    const getUserInfo = async () => {
+        try {
+            const user = await auth0.getUser();
+            setUser(user);
+        } catch (error) {
+            console.log('Error getting user:', error);
+        }
+    };
+
+    const handleSignOut = async () => {
+        try {
+            await auth0.signOut();
+            navigation.replace('SignIn');
+        } catch (error) {
+            Alert.alert('Error', 'Failed to sign out');
+        }
+    };
+
     const quickAccessItems = [
         { icon: 'restaurant', label: 'Food', color: '#EF4444' },
         { icon: 'local-library', label: 'Library', color: '#10B981' },
@@ -11,7 +36,7 @@ export default function DashboardScreen({ navigation }) {
         { icon: 'campaign', label: 'Student Voice', color: '#A855F7' },
         { icon: 'checklist', label: 'Attendance', color: '#F97316' },
         { icon: 'storefront', label: 'Campus Marketplace', color: '#EC4899' },
-        { icon: 'menu-book', label: 'Learning', color: '#06B6D4' },
+        { icon: 'menu-book', label: 'Learning', color: '#06B6D4', onPress: () => navigation.navigate('LearningHub') },
     ];
 
     return (
@@ -24,14 +49,22 @@ export default function DashboardScreen({ navigation }) {
                         <View style={styles.header}>
                             <View>
                                 <Text style={styles.title}>Dashboard</Text>
-                                <Text style={styles.subtitle}>Welcome back!</Text>
+                                <Text style={styles.subtitle}>
+                                    {user?.email ? `Welcome, ${user.email.split('@')[0]}!` : 'Welcome back!'}
+                                </Text>
                             </View>
-                            <View style={styles.profilePicContainer}>
+                            <TouchableOpacity 
+                                style={styles.profilePicContainer}
+                                onPress={handleSignOut}
+                            >
                                 <Image
-                                    source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC_UmOn2Ca2nFEDCfiijmx_SEi5EH7D2Y6catOJoHdc88XpwtWj5zuuQ5dwNK3a7Vj-26z0EWTwIWx9VZAGwkLntb__QkElZ01Us3OAPD9MqMORkDD0exnYBC5tsdW0CqAXJPvj5vQ2xXB5z23WE7ht34HAKNIQ2JaMajtyMPmUoBdGtODTxv_B148bL522wslFyfrgwmODlqI6XuD9T1Go9MhoAdT0_OCGvuW7aPDZeK-3c0mk5T1l3noLxaYZqL_N6G4BNePt4Xs' }}
+                                    source={{ 
+                                        uri: user?.user_metadata?.avatar_url || 
+                                        'https://lh3.googleusercontent.com/aida-public/AB6AXuC_UmOn2Ca2nFEDCfiijmx_SEi5EH7D2Y6catOJoHdc88XpwtWj5zuuQ5dwNK3a7Vj-26z0EWTwIWx9VZAGwkLntb__QkElZ01Us3OAPD9MqMORkDD0exnYBC5tsdW0CqAXJPvj5vQ2xXB5z23WE7ht34HAKNIQ2JaMajtyMPmUoBdGtODTxv_B148bL522wslFyfrgwmODlqI6XuD9T1Go9MhoAdT0_OCGvuW7aPDZeK-3c0mk5T1l3noLxaYZqL_N6G4BNePt4Xs' 
+                                    }}
                                     style={styles.profilePic}
                                 />
-                            </View>
+                            </TouchableOpacity>
                         </View>
 
                         {/* Upcoming Attendance */}
@@ -79,7 +112,11 @@ export default function DashboardScreen({ navigation }) {
                         <MaterialIcons name="dashboard" size={24} color="#0A84FF" />
                         <Text style={[styles.navLabel, { color: '#0A84FF' }]}>Dashboard</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem} activeOpacity={0.7}>
+                    <TouchableOpacity
+                        style={styles.navItem}
+                        activeOpacity={0.7}
+                        onPress={() => navigation.navigate('LearningHub')}
+                    >
                         <MaterialIcons name="school" size={24} color="#8E8E93" />
                         <Text style={styles.navLabel}>Learning</Text>
                     </TouchableOpacity>
