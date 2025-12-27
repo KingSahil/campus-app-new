@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Library Services</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#4b2bee",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#131022",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-dark font-display">
+<div class="relative flex h-auto min-h-screen w-full flex-col bg-background-dark overflow-x-hidden">
+<!-- Top App Bar -->
+<div class="flex items-center bg-background-dark p-4 pb-2 justify-between sticky top-0 z-10">
+<div class="flex size-12 shrink-0 items-center">
+<span class="material-symbols-outlined text-white text-2xl">arrow_back</span>
+</div>
+<h2 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">Library Services</h2>
+<div class="flex w-12 items-center justify-end">
+<button class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 w-10 bg-transparent text-white gap-2 text-base font-bold leading-normal tracking-[0.015em] min-w-0 p-0">
+<span class="material-symbols-outlined text-white text-2xl">notifications</span>
+</button>
+</div>
+</div>
+<!-- Search Bar -->
+<div class="px-4 py-3">
+<label class="flex flex-col min-w-40 h-12 w-full">
+<div class="flex w-full flex-1 items-stretch rounded-xl h-full">
+<div class="text-[#a19db9] flex border-none bg-[#1d1c27] items-center justify-center pl-4 rounded-l-xl border-r-0">
+<span class="material-symbols-outlined text-2xl">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-r-xl text-white focus:outline-0 focus:ring-0 border-none bg-[#1d1c27] focus:border-none h-full placeholder:text-[#a19db9] px-4 pl-2 text-base font-normal leading-normal" placeholder="Search by Title, Author, or ISBN" value=""/>
+</div>
+</label>
+</div>
+<!-- Actions Bar -->
+<div class="px-4 py-3">
+<div class="@container">
+<div class="gap-3 grid-cols-[repeat(auto-fit,_minmax(80px,_1fr))] grid">
+<div class="flex flex-col items-center gap-2 py-2.5 text-center">
+<div class="rounded-full bg-[#1d1c27] p-3.5">
+<span class="material-symbols-outlined text-white text-2xl">qr_code_scanner</span>
+</div>
+<p class="text-white text-sm font-medium leading-normal">Scan ISBN</p>
+</div>
+<div class="flex flex-col items-center gap-2 py-2.5 text-center">
+<div class="rounded-full bg-[#1d1c27] p-3.5">
+<span class="material-symbols-outlined text-white text-2xl">desktop_windows</span>
+</div>
+<p class="text-white text-sm font-medium leading-normal">Reserve a PC</p>
+</div>
+<div class="flex flex-col items-center gap-2 py-2.5 text-center">
+<div class="rounded-full bg-[#1d1c27] p-3.5">
+<span class="material-symbols-outlined text-white text-2xl">bookmark</span>
+</div>
+<p class="text-white text-sm font-medium leading-normal">My Reservations</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Section Header for Borrowed Books -->
+<h3 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">My Borrowed Books</h3>
+<!-- Carousel for Borrowed Books -->
+<div class="flex overflow-y-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&amp;::-webkit-scrollbar]:hidden pb-4">
+<div class="flex items-stretch px-4 gap-4">
+<div class="flex h-full flex-1 flex-col gap-3 rounded-xl bg-[#1d1c27] shadow-[0_0_4px_rgba(0,0,0,0.1)] w-40 p-3">
+<div class="w-full bg-center bg-no-repeat aspect-[3/4] bg-cover rounded-lg flex flex-col" data-alt="Book cover for The Midnight Library" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC_gbvDIvzdqftfgm_pDLGOi0fwpWtLYnhKkiVtq1xZYvc6yHe-XkaCIErnHcLezjIr4YVAGnXyRF5VM0L0NgV4sZeaM0QxZfuIHmHFDYSO5jddfTW0hx-supQEKW3y9qQ7g_Nk1Q23WrhS-OD4k3baTmyHhf0EMVvXnQ0nqvJBR4NxXA6wFKXlXZYfZtwI8YbGiyII0k6cOuvY4NeHhf_L8MJhLA_WDdIEInKivIUAn1TV1qsL-i48BDtLaU7GOSH3hTfScYwED_Y");'></div>
+<div class="flex flex-col flex-1 justify-between gap-1">
+<div>
+<p class="text-white text-base font-medium leading-normal truncate">The Midnight Library</p>
+<p class="text-[#a19db9] text-sm font-normal leading-normal">Due: 24 Dec 2024</p>
+</div>
+<button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-9 px-4 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] w-full mt-2">
+<span class="truncate">Renew</span>
+</button>
+</div>
+</div>
+<div class="flex h-full flex-1 flex-col gap-3 rounded-xl bg-[#1d1c27] shadow-[0_0_4px_rgba(0,0,0,0.1)] w-40 p-3">
+<div class="w-full bg-center bg-no-repeat aspect-[3/4] bg-cover rounded-lg flex flex-col" data-alt="Book cover for Project Hail Mary" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAbBrLO88k2nSjbJrt6GZxf0yhb43TrJvB0R6-h_-Ja_KIYeDBB1M1aSWrKQwp0FFEpmu8iLeJSXFM_MPhfRYjt7u9C1AtVWzlGHk4WG-bZ64CoitqpEsSE0IpDkaWIwdyzdFwcmydmAUbeR0IwINhrh19Qe3sq_yreXPtJbNuWp_OYk5FONBnGN8MqQFCxyLYn0siODxZXDgK8YBoYL3rWOkzoTAlIbogskwb3TkIOxrszHT3EVpCD4tLgdzE670_fwUzLI7aazgE");'></div>
+<div class="flex flex-col flex-1 justify-between gap-1">
+<div>
+<p class="text-white text-base font-medium leading-normal truncate">Project Hail Mary</p>
+<p class="text-[#a19db9] text-sm font-normal leading-normal">Due: 30 Dec 2024</p>
+</div>
+<button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-9 px-4 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] w-full mt-2">
+<span class="truncate">Renew</span>
+</button>
+</div>
+</div>
+<div class="flex h-full flex-1 flex-col gap-3 rounded-xl bg-[#1d1c27] shadow-[0_0_4px_rgba(0,0,0,0.1)] w-40 p-3">
+<div class="w-full bg-center bg-no-repeat aspect-[3/4] bg-cover rounded-lg flex flex-col" data-alt="Book cover for Dune" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCBmM1oLYq_USfWALKYWEkmYejkOTaQZH2R-uZ1a-XY65rMb7ZbZIGcOz2QdHEuiCuAExLehRp7mN_gy-5Q5fkxUpkhTQSToD65lOu_TF7tbdZwRxsxW4FxFaQwZ-zhCJiE32AwPaSjq2c2DeOoDV6RAPyCWjPgdAMltTKGh2w8XQImABU-uL6nj4l2HrS2Lt-jpBESnjXxLVjj3oI5Vu-tGyuwfNf4wimihlsiS9l9T1vHG6S9vH5K_LYGR-3YGEYxYHpB47VHQ9s");'></div>
+<div class="flex flex-col flex-1 justify-between gap-1">
+<div>
+<p class="text-white text-base font-medium leading-normal truncate">Dune</p>
+<p class="text-[#a19db9] text-sm font-normal leading-normal">Due: 05 Jan 2025</p>
+</div>
+<button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-9 px-4 bg-[#2b2839] text-white text-sm font-bold leading-normal tracking-[0.015em] w-full mt-2">
+<span class="truncate">View</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Section Header for Recommendations -->
+<h3 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">New Arrivals</h3>
+<!-- Carousel for Recommendations -->
+<div class="flex overflow-y-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&amp;::-webkit-scrollbar]:hidden pb-24">
+<div class="flex items-stretch px-4 gap-4">
+<div class="flex h-full flex-1 flex-col gap-3 rounded-xl bg-[#1d1c27] shadow-[0_0_4px_rgba(0,0,0,0.1)] w-40 p-3">
+<div class="w-full bg-center bg-no-repeat aspect-[3/4] bg-cover rounded-lg flex flex-col" data-alt="Book cover for Klara and the Sun" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBUJ2DQZ9i6XDAyhF4tMHbl5aN-shj1XeFO8P70H1LKg4mvVaAHa0ZofcHdBMD7ebDL6ILT36eOknid0QRzQHdpPkS73WhQ8yWZcCNYqpxwO7HIQMA2U_ShlBeGpVyjzGjJ0UBVkq53RWnZax0h4arJVgNkQE8r8fh8A8cOziGF6I-UXg-JkMHxqT2V1lZlhZqI6OVLGqEXdIwmCTpAl5f5HutXGZNw0d_GyntlsIBcwGU4_JWfDl7yWtuNe7jRfouFiJtUlGfgb2g");'></div>
+<div class="flex flex-col flex-1 justify-between gap-1">
+<div>
+<p class="text-white text-base font-medium leading-normal truncate">Klara and the Sun</p>
+<p class="text-primary text-sm font-normal leading-normal">Available</p>
+</div>
+<button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-9 px-4 bg-[#2b2839] text-white text-sm font-bold leading-normal tracking-[0.015em] w-full mt-2">
+<span class="truncate">Reserve</span>
+</button>
+</div>
+</div>
+<div class="flex h-full flex-1 flex-col gap-3 rounded-xl bg-[#1d1c27] shadow-[0_0_4px_rgba(0,0,0,0.1)] w-40 p-3">
+<div class="w-full bg-center bg-no-repeat aspect-[3/4] bg-cover rounded-lg flex flex-col" data-alt="Book cover for The Vanishing Half" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD5JxEidoW6dhPDbeMycTKmF7RQwFG1Qs9TFtwkwi_9mdrKjv7lzJ54Qq4A76TbiNTf4AAcF6-mEFzO4c9g5--STsKaXxr8BFm4TOdKlbdAMR0jBZhlX-sXHA7ZfCABRsIy7h_UVrdNF0CGeOhFY-UX9iegsWksYw2f_LiS00mc8Qf4345E46h5gQrQ-lkF-Z8bUjQgEimGUrUCdCPYrG7sPLF2qzd7_038c8duPSPvir2-PZvf6KzQUYDoC2F_iFAXVfVYeoezmkM");'></div>
+<div class="flex flex-col flex-1 justify-between gap-1">
+<div>
+<p class="text-white text-base font-medium leading-normal truncate">The Vanishing Half</p>
+<p class="text-primary text-sm font-normal leading-normal">Available</p>
+</div>
+<button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-9 px-4 bg-[#2b2839] text-white text-sm font-bold leading-normal tracking-[0.015em] w-full mt-2">
+<span class="truncate">Reserve</span>
+</button>
+</div>
+</div>
+<div class="flex h-full flex-1 flex-col gap-3 rounded-xl bg-[#1d1c27] shadow-[0_0_4px_rgba(0,0,0,0.1)] w-40 p-3">
+<div class="w-full bg-center bg-no-repeat aspect-[3/4] bg-cover rounded-lg flex flex-col" data-alt="Book cover for Atomic Habits" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDcyKcxM_4GJv4xLsYI8ra1zMuRN5ONozz-TaGx2C1xlB4z4eD0GcBrRtTqFow36k0f34KqWTysihd3P-vVPg9doEx7vx1mqQ_P96Hl0mID1JuxMDKfsihrqb1xVzciNXUPtnFIsDLNHfO9J7CnxwbnPAe1uE5gdYUSjhZHDnLiTBh5JkHtwnJ4h9EZZTTVJUwQsv16BJ7eATUE3PuRvJs-5nDIXYfhq8C2v8Dfr3_8tZL0mTCSTR_2wvoFRJL2uMkZtGAcHVCs9nQ");'></div>
+<div class="flex flex-col flex-1 justify-between gap-1">
+<div>
+<p class="text-white text-base font-medium leading-normal truncate">Atomic Habits</p>
+<p class="text-[#a19db9] text-sm font-normal leading-normal">On Loan</p>
+</div>
+<button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-9 px-4 bg-[#2b2839] text-white text-sm font-bold leading-normal tracking-[0.015em] w-full mt-2">
+<span class="truncate">Join Waitlist</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Navigation Bar -->
+<div class="fixed bottom-0 left-0 right-0 z-10 bg-[#1d1c27] border-t border-t-[#2b2839]">
+<div class="flex justify-around items-center h-20 px-2">
+<a class="flex flex-col items-center justify-center text-[#a19db9] flex-1" href="#">
+<span class="material-symbols-outlined text-2xl">dashboard</span>
+<span class="text-xs mt-1">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary flex-1" href="#">
+<span class="material-symbols-outlined text-2xl">school</span>
+<span class="text-xs mt-1 font-bold">Learning</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#a19db9] flex-1" href="#">
+<span class="material-symbols-outlined text-2xl">event_available</span>
+<span class="text-xs mt-1">Attendance</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#a19db9] flex-1" href="#">
+<span class="material-symbols-outlined text-2xl">campaign</span>
+<span class="text-xs mt-1">Notices</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#a19db9] flex-1" href="#">
+<span class="material-symbols-outlined text-2xl">person</span>
+<span class="text-xs mt-1">Profile</span>
+</a>
+</div>
+</div>
+</div>
+</body></html>

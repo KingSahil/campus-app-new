@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Learning Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#3b82f6", // blue-500
+            "background-light": "#f3f4f6", // gray-100
+            "background-dark": "#111827", // gray-900
+          },
+          fontFamily: {
+            display: ["Inter", "sans-serif"],
+          },
+          borderRadius: {
+            DEFAULT: "0.5rem", // 8px
+          },
+        },
+      },
+    };
+  </script>
+<style>
+    .material-icons {
+      font-size: 24px;
+      vertical-align: middle;
+    }
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-dark font-display">
+<div class="h-screen w-full max-w-sm mx-auto flex flex-col relative" id="app">
+<div class="absolute inset-0 bg-gradient-to-br from-[#1E1A3B] via-[#101021] to-[#0D1B2A] z-0"></div>
+<div class="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-br from-purple-900/40 via-blue-900/20 to-transparent opacity-30 blur-3xl"></div>
+<main class="flex-1 overflow-y-auto px-4 pt-6 pb-20 z-10">
+<header class="flex justify-between items-center mb-8">
+<h1 class="text-3xl font-bold text-gray-100">Learning Hub</h1>
+<button class="w-10 h-10 flex items-center justify-center bg-white/10 backdrop-blur-sm rounded-full text-gray-100 border border-white/20">
+<span class="material-icons">add</span>
+</button>
+</header>
+<div class="space-y-4">
+<div class="bg-white/5 p-5 rounded-lg shadow-sm border border-white/10 backdrop-blur-lg">
+<h2 class="text-xl font-semibold text-white">Physics</h2>
+<p class="text-sm text-gray-400 mt-1">Quantum Mechanics, Electrodynamics</p>
+</div>
+<div class="bg-white/5 p-5 rounded-lg shadow-sm border border-white/10 backdrop-blur-lg">
+<h2 class="text-xl font-semibold text-white">Maths</h2>
+<p class="text-sm text-gray-400 mt-1">Calculus, Linear Algebra</p>
+</div>
+<div class="bg-white/5 p-5 rounded-lg shadow-sm border border-white/10 backdrop-blur-lg">
+<h2 class="text-xl font-semibold text-white">Punjabi</h2>
+<p class="text-sm text-gray-400 mt-1">Literature, Grammar</p>
+</div>
+</div>
+</main>
+<nav class="fixed bottom-0 left-0 right-0 max-w-sm mx-auto bg-black/30 border-t border-white/10 backdrop-blur-xl shadow-[0_-2px_5px_rgba(0,0,0,0.2)] z-20">
+<div class="flex justify-around h-16">
+<a class="flex flex-col items-center justify-center w-full text-gray-400 hover:text-white transition-colors" href="#">
+<span class="material-icons">dashboard</span>
+<span class="text-xs mt-1">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full text-blue-400" href="#">
+<span class="material-icons">school</span>
+<span class="text-xs mt-1">Learning</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full text-gray-400 hover:text-white transition-colors" href="#">
+<span class="material-icons">co_present</span>
+<span class="text-xs mt-1">Attendance</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full text-gray-400 hover:text-white transition-colors" href="#">
+<span class="material-icons">notifications</span>
+<span class="text-xs mt-1">Notices</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full text-gray-400 hover:text-white transition-colors" href="#">
+<span class="material-icons">person</span>
+<span class="text-xs mt-1">Profile</span>
+</a>
+</div>
+</nav>
+</div>
+
+</body></html>

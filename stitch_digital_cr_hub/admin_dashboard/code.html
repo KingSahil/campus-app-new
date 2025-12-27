@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Admin Portal Homepage</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#0A84FF", // A vibrant iOS blue
+            "background-light": "#F3F4F6", 
+            "background-dark": "#161625", // New dark purple-blue background
+            "card-dark": "#1C1C2E", // New slightly lighter purple-blue card
+            "text-primary-dark": "#FFFFFF",
+            "text-secondary-dark": "#8E8E93" 
+          },
+          fontFamily: {
+            display: ["Roboto", "sans-serif"],
+          },
+          borderRadius: {
+            DEFAULT: "0.75rem", // 12px
+          },
+        },
+      },
+    };
+  </script>
+<style>
+    body {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      min-height: max(884px, 100dvh);
+    }
+    .material-symbols-outlined {
+      font-variation-settings:
+      'FILL' 0,
+      'wght' 400,
+      'GRAD' 0,
+      'opsz' 24
+    }
+    .material-symbols-outlined.filled {
+      font-variation-settings:
+      'FILL' 1,
+      'wght' 400,
+      'GRAD' 0,
+      'opsz' 24
+    }
+</style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-dark font-display relative">
+<div class="absolute inset-0 z-0">
+<div class="absolute -top-1/4 -left-1/4 w-1/2 h-1/2 bg-purple-600/30 rounded-full filter blur-3xl opacity-50"></div>
+<div class="absolute top-1/4 -right-1/4 w-1/2 h-1/2 bg-blue-600/30 rounded-full filter blur-3xl opacity-50"></div>
+</div>
+<div class="h-screen w-full max-w-sm mx-auto flex flex-col z-10 relative">
+<main class="flex-grow p-6 text-text-primary-dark overflow-y-auto no-scrollbar pb-24">
+<div class="flex justify-between items-center mb-8">
+<div>
+<h1 class="text-3xl font-bold">Admin Portal</h1>
+<p class="text-text-secondary-dark">Welcome, Professor</p>
+</div>
+<div class="w-12 h-12 bg-slate-700 rounded-full overflow-hidden">
+<img alt="User profile picture" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_UmOn2Ca2nFEDCfiijmx_SEi5EH7D2Y6catOJoHdc88XpwtWj5zuuQ5dwNK3a7Vj-26z0EWTwIWx9VZAGwkLntb__QkElZ01Us3OAPD9MqMORkDD0exnYBC5tsdW0CqAXJPvj5vQ2xXB5z23WE7ht34HAKNIQ2JaMajtyMPmUoBdGtODTxv_B148bL522wslFyfrgwmODlqI6XuD9T1Go9MhoAdT0_OCGvuW7aPDZeK-3c0mk5T1l3noLxaYZqL_N6G4BNePt4Xs"/>
+</div>
+</div>
+<div>
+<h2 class="text-lg font-semibold mb-3 text-text-primary-dark">Quick Access</h2>
+<div class="grid grid-cols-2 gap-4 pb-8">
+<div class="bg-card-dark/70 backdrop-blur-sm border border-white/10 p-5 rounded-2xl flex flex-col items-start space-y-4 hover:bg-white/5 transition-colors cursor-pointer h-36 justify-between">
+<span class="material-symbols-outlined text-red-500 text-4xl">restaurant</span>
+<p class="font-bold text-text-primary-dark text-lg">Food</p>
+</div>
+<div class="bg-card-dark/70 backdrop-blur-sm border border-white/10 p-5 rounded-2xl flex flex-col items-start space-y-4 hover:bg-white/5 transition-colors cursor-pointer h-36 justify-between">
+<span class="material-symbols-outlined text-green-500 text-4xl">local_library</span>
+<p class="font-bold text-text-primary-dark text-lg">Library</p>
+</div>
+<div class="bg-card-dark/70 backdrop-blur-sm border border-white/10 p-5 rounded-2xl flex flex-col items-start space-y-4 hover:bg-white/5 transition-colors cursor-pointer h-36 justify-between">
+<span class="material-symbols-outlined text-purple-400 text-4xl">campaign</span>
+<p class="font-bold text-text-primary-dark text-lg">Student Voice</p>
+</div>
+<div class="bg-card-dark/70 backdrop-blur-sm border border-white/10 p-5 rounded-2xl flex flex-col items-start space-y-4 hover:bg-white/5 transition-colors cursor-pointer h-36 justify-between">
+<span class="material-symbols-outlined text-orange-400 text-4xl">checklist_rtl</span>
+<p class="font-bold text-text-primary-dark text-lg">Attendance</p>
+</div>
+<div class="bg-card-dark/70 backdrop-blur-sm border border-white/10 p-5 rounded-2xl flex flex-col items-start space-y-4 hover:bg-white/5 transition-colors cursor-pointer h-36 justify-between">
+<span class="material-symbols-outlined text-pink-500 text-4xl">storefront</span>
+<p class="font-bold text-text-primary-dark text-lg leading-tight">Campus<br/>Marketplace</p>
+</div>
+<div class="bg-card-dark/70 backdrop-blur-sm border border-white/10 p-5 rounded-2xl flex flex-col items-start space-y-4 hover:bg-white/5 transition-colors cursor-pointer h-36 justify-between">
+<span class="material-symbols-outlined text-cyan-400 text-4xl">menu_book</span>
+<p class="font-bold text-text-primary-dark text-lg">Learning</p>
+</div>
+</div>
+</div>
+</main>
+<nav class="fixed bottom-0 left-0 right-0 max-w-sm mx-auto bg-black/80 backdrop-blur-md border-t border-white/10 pb-6 pt-2 z-50">
+<div class="flex justify-around items-center px-2">
+<a class="flex flex-col items-center justify-center w-full space-y-1" href="#">
+<span class="material-symbols-outlined text-primary text-2xl">grid_view</span>
+<span class="text-[10px] font-medium text-primary">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full space-y-1 group" href="#">
+<span class="material-symbols-outlined text-text-secondary-dark group-hover:text-white transition-colors text-2xl">school</span>
+<span class="text-[10px] font-medium text-text-secondary-dark group-hover:text-white transition-colors">Learning</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full space-y-1 group" href="#">
+<span class="material-symbols-outlined text-text-secondary-dark group-hover:text-white transition-colors text-2xl">notifications</span>
+<span class="text-[10px] font-medium text-text-secondary-dark group-hover:text-white transition-colors">Notices</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full space-y-1 group" href="#">
+<span class="material-symbols-outlined text-text-secondary-dark group-hover:text-white transition-colors text-2xl">checklist</span>
+<span class="text-[10px] font-medium text-text-secondary-dark group-hover:text-white transition-colors">Attendance</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full space-y-1 group" href="#">
+<span class="material-symbols-outlined text-text-secondary-dark group-hover:text-white transition-colors text-2xl">person</span>
+<span class="text-[10px] font-medium text-text-secondary-dark group-hover:text-white transition-colors">Profile</span>
+</a>
+</div>
+</nav>
+</div>
+</body></html>
