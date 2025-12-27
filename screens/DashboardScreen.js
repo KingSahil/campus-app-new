@@ -7,6 +7,7 @@ export default function DashboardScreen({ navigation }) {
     const quickAccessItems = [
         { icon: 'restaurant', label: 'Food', color: '#EF4444' },
         { icon: 'local-library', label: 'Library', color: '#10B981' },
+        { icon: 'notifications', label: 'Notices', color: '#F59E0B', onPress: () => navigation.navigate('Notices') },
         { icon: 'campaign', label: 'Student Voice', color: '#A855F7' },
         { icon: 'checklist', label: 'Attendance', color: '#F97316' },
         { icon: 'storefront', label: 'Campus Marketplace', color: '#EC4899' },
@@ -61,6 +62,7 @@ export default function DashboardScreen({ navigation }) {
                                         key={index}
                                         style={styles.quickAccessCard}
                                         activeOpacity={0.8}
+                                        onPress={item.onPress}
                                     >
                                         <MaterialIcons name={item.icon} size={28} color={item.color} />
                                         <Text style={styles.quickAccessLabel}>{item.label}</Text>
@@ -81,7 +83,11 @@ export default function DashboardScreen({ navigation }) {
                         <MaterialIcons name="school" size={24} color="#8E8E93" />
                         <Text style={styles.navLabel}>Learning</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem} activeOpacity={0.7}>
+                    <TouchableOpacity
+                        style={styles.navItem}
+                        activeOpacity={0.7}
+                        onPress={() => navigation.navigate('Notices')}
+                    >
                         <MaterialIcons name="notifications" size={24} color="#8E8E93" />
                         <Text style={styles.navLabel}>Notices</Text>
                     </TouchableOpacity>
