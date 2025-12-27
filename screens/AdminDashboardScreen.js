@@ -15,7 +15,12 @@ export default function AdminDashboardScreen({ navigation }) {
             onPress: () => navigation.navigate('AttendanceAdmin')
         },
         { icon: 'storefront', label: 'Campus\nMarketplace', color: '#EC4899' },
-        { icon: 'menu-book', label: 'Learning', color: '#06B6D4' },
+        { 
+            icon: 'menu-book', 
+            label: 'Learning', 
+            color: '#06B6D4',
+            onPress: () => navigation.navigate('LearningHub')
+        },
     ];
 
     return (
@@ -64,7 +69,11 @@ export default function AdminDashboardScreen({ navigation }) {
                         <MaterialIcons name="dashboard" size={24} color="#0A84FF" />
                         <Text style={[styles.navLabel, { color: '#0A84FF' }]}>Dashboard</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem} activeOpacity={0.7}>
+                    <TouchableOpacity 
+                        style={styles.navItem} 
+                        activeOpacity={0.7}
+                        onPress={() => navigation.navigate('LearningHub')}
+                    >
                         <MaterialIcons name="school" size={24} color="#8E8E93" />
                         <Text style={styles.navLabel}>Learning</Text>
                     </TouchableOpacity>
@@ -72,7 +81,11 @@ export default function AdminDashboardScreen({ navigation }) {
                         <MaterialIcons name="notifications" size={24} color="#8E8E93" />
                         <Text style={styles.navLabel}>Notices</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem} activeOpacity={0.7}>
+                    <TouchableOpacity 
+                        style={styles.navItem} 
+                        activeOpacity={0.7}
+                        onPress={() => navigation.navigate('AttendanceAdmin')}
+                    >
                         <MaterialIcons name="checklist" size={24} color="#8E8E93" />
                         <Text style={styles.navLabel}>Attendance</Text>
                     </TouchableOpacity>
