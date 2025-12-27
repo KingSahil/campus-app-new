@@ -37,7 +37,7 @@ export default function App() {
               contentStyle: { backgroundColor: Platform.OS === 'android' ? 'transparent' : 'black' },
               animation: 'fade', // Optional: nice transition
             }}
-            initialRouteName="Profiled"
+            initialRouteName="Profile"
           >
             <Stack.Screen name="SignIn" component={SignInScreen} />
             <Stack.Screen name="Profile" component={SignUpScreen} />
