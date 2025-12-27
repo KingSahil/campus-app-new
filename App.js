@@ -22,6 +22,28 @@ import LectureVideoScreen from './screens/LectureVideoScreen';
 
 const Stack = createNativeStackNavigator();
 
+const linking = {
+  prefixes: [],
+  config: {
+    screens: {
+      SignIn: 'signin',
+      Profile: 'profile',
+      ProfileEnter: 'profile-enter',
+      GetStarted: 'get-started',
+      Dashboard: 'dashboard',
+      AdminDashboard: 'admin-dashboard',
+      AttendanceAdmin: 'attendance-admin',
+      ManageAttendance: 'manage-attendance',
+      AttendanceList: 'attendance-list',
+      Notices: 'notices',
+      LearningHub: 'learning-hub',
+      SubjectTopics: 'subject-topics',
+      VideosList: 'videos-list',
+      LectureVideo: 'lecture-video',
+    },
+  },
+};
+
 export default function App() {
   return (
     <SafeAreaProvider>      
@@ -30,7 +52,7 @@ export default function App() {
         <Background /> 
         
 
-        <NavigationContainer>
+        <NavigationContainer linking={linking}>
           <Stack.Navigator
             screenOptions={{
               headerShown: false,
