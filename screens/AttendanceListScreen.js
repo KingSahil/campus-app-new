@@ -1,26 +1,103 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Platform, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Platform, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
 
-export default function AttendanceListScreen({ navigation }) {
+export default function AttendanceListScreen({ navigation, route }) {
     const [searchQuery, setSearchQuery] = useState('');
+    const [presentStudents, setPresentStudents] = useState([]);
+    const [absentStudents, setAbsentStudents] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [sessionInfo, setSessionInfo] = useState(null);
 
-    const presentStudents = [
-        { id: '2023001', name: 'John Doe', initials: 'JD', color1: '#3B82F6', color2: '#6366F1' },
-        { id: '2023015', name: 'Emma Watson', initials: 'EW', color1: '#A855F7', color2: '#EC4899' },
-        { id: '2023042', name: 'Liam Johnson', initials: 'LJ', color1: '#10B981', color2: '#14B8A6', hasImage: true },
-        { id: '2023089', name: "Sarah O'Connor", initials: 'SO', color1: '#10B981', color2: '#14B8A6' },
-    ];
+    const sessionId = route.params?.sessionId;
 
-    const absentStudents = [
-        { id: '2023011', name: 'Michael Key', initials: 'MK' },
-        { id: '2023055', name: 'Jessica Lee', initials: 'JL' },
-    ];
+    useEffect(() => {
+        if (sessionId) {
+            fetchAttendanceData();
+            // Refresh every 5 seconds to show new attendance marks
+            const interval = setInterval(fetchAttendanceData, 5000);
+            return () => clearInterval(interval);
+        }
+    }, [sessionId]);
 
-    const getGradientStyle = (color1, color2) => ({
-        background: `linear-gradient(to bottom right, ${color1}, ${color2})`,
-    });
+    const fetchAttendanceData = async () => {
+        try {
+            // Fetch session info
+            const { data: session, error: sessionError } = await supabase
+                .from('attendance_sessions')
+                .select(`
+                    *,
+                    classes (
+                        id,
+                        name,
+                        subject
+                    )
+                `)
+                .eq('id', sessionId)
+                .single();
+
+            if (sessionError) {
+                console.error('Error fetching session:', sessionError);
+                return;
+            }
+
+            setSessionInfo(session);
+
+            // Fetch attendance records
+            const { data: records, error: recordsError } = await supabase
+                .from('attendance_records')
+                .select('*')
+                .eq('session_id', sessionId)
+                .order('marked_at', { ascending: false });
+
+            if (recordsError) {
+                console.error('Error fetching records:', recordsError);
+                return;
+            }
+
+            // Separate present and absent
+            const present = records.filter(r => r.status === 'present');
+            const absent = records.filter(r => r.status === 'absent');
+
+            setPresentStudents(present);
+            setAbsentStudents(absent);
+        } catch (error) {
+            console.error('Error:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const getInitials = (name) => {
+        if (!name) return '??';
+        const parts = name.split(' ');
+        if (parts.length >= 2) {
+            return parts[0][0] + parts[parts.length - 1][0];
+        }
+        return name.substring(0, 2).toUpperCase();
+    };
+
+    const getAvatarColor = (name) => {
+        if (!name) return '#8E8E93';
+        const colors = [
+            '#3B82F6', '#A855F7', '#EC4899', '#10B981', 
+            '#F59E0B', '#EF4444', '#14B8A6', '#6366F1'
+        ];
+        const index = name.charCodeAt(0) % colors.length;
+        return colors[index];
+    };
+
+    const filteredPresentStudents = presentStudents.filter(student =>
+        student.student_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        student.student_email?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const filteredAbsentStudents = absentStudents.filter(student =>
+        student.student_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        student.student_email?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     return (
         <View style={styles.container}>
@@ -36,18 +113,26 @@ export default function AttendanceListScreen({ navigation }) {
                     </TouchableOpacity>
                     <View style={styles.headerTitleContainer}>
                         <Text style={styles.headerTitle}>Attendance List</Text>
-                        <Text style={styles.headerSubtitle}>Physics • Session #42</Text>
+                        <Text style={styles.headerSubtitle}>
+                            {sessionInfo?.classes?.subject || 'Class'} • {sessionInfo?.session_code || 'Session'}
+                        </Text>
                     </View>
                     <TouchableOpacity 
                         style={styles.filterButton}
                         activeOpacity={0.7}
+                        onPress={fetchAttendanceData}
                     >
-                        <MaterialIcons name="filter-list" size={24} color="#ffffff" />
+                        <MaterialIcons name="refresh" size={24} color="#ffffff" />
                     </TouchableOpacity>
                 </View>
 
-                {/* Main Content */}
-                <ScrollView 
+                {loading ? (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color="#0A84FF" />
+                        <Text style={styles.loadingText}>Loading attendance...</Text>
+                    </View>
+                ) : (
+                    <ScrollView 
                     style={styles.scrollView} 
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
@@ -75,36 +160,46 @@ export default function AttendanceListScreen({ navigation }) {
                                 <Text style={styles.sectionTitle}>PRESENT STUDENTS</Text>
                             </View>
                             <View style={styles.countBadgePresent}>
-                                <Text style={styles.countTextPresent}>24</Text>
+                                <Text style={styles.countTextPresent}>{filteredPresentStudents.length}</Text>
                             </View>
                         </View>
 
-                        <View style={styles.studentList}>
-                            {presentStudents.map((student) => (
-                                <View key={student.id} style={styles.studentCard}>
-                                    {student.hasImage ? (
-                                        <View style={styles.avatarImage}>
-                                            <View style={[styles.avatarPlaceholder, { backgroundColor: student.color1 }]}>
-                                                <Text style={styles.avatarText}>{student.initials}</Text>
+                        {filteredPresentStudents.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <MaterialIcons name="person-off" size={48} color="#8E8E93" />
+                                <Text style={styles.emptyText}>No students marked present yet</Text>
+                            </View>
+                        ) : (
+                            <View style={styles.studentList}>
+                                {filteredPresentStudents.map((student) => {
+                                    const initials = getInitials(student.student_name);
+                                    const color = getAvatarColor(student.student_name);
+                                    
+                                    return (
+                                        <View key={student.id} style={styles.studentCard}>
+                                            <View style={[styles.avatar, { backgroundColor: color }]}>
+                                                <Text style={styles.avatarText}>{initials}</Text>
                                             </View>
+                                            <View style={styles.studentInfo}>
+                                                <Text style={styles.studentName}>{student.student_name}</Text>
+                                                <Text style={styles.studentId}>{student.student_email}</Text>
+                                            </View>
+                                            <View style={styles.timeContainer}>
+                                                <Text style={styles.timeText}>
+                                                    {new Date(student.marked_at).toLocaleTimeString('en-US', { 
+                                                        hour: 'numeric', 
+                                                        minute: '2-digit' 
+                                                    })}
+                                                </Text>
+                                            </View>
+                                            <TouchableOpacity style={styles.statusButton} activeOpacity={0.7}>
+                                                <MaterialIcons name="check-circle" size={24} color="#10B981" />
+                                            </TouchableOpacity>
                                         </View>
-                                    ) : (
-                                        <View style={[styles.avatar, { 
-                                            backgroundColor: student.color1,
-                                        }]}>
-                                            <Text style={styles.avatarText}>{student.initials}</Text>
-                                        </View>
-                                    )}
-                                    <View style={styles.studentInfo}>
-                                        <Text style={styles.studentName}>{student.name}</Text>
-                                        <Text style={styles.studentId}>ID: {student.id}</Text>
-                                    </View>
-                                    <TouchableOpacity style={styles.statusButton} activeOpacity={0.7}>
-                                        <MaterialIcons name="check-circle" size={24} color="#10B981" />
-                                    </TouchableOpacity>
-                                </View>
-                            ))}
-                        </View>
+                                    );
+                                })}
+                            </View>
+                        )}
                     </View>
 
                     {/* Absent Students */}
@@ -115,29 +210,41 @@ export default function AttendanceListScreen({ navigation }) {
                                 <Text style={[styles.sectionTitle, { color: '#F87171' }]}>ABSENT STUDENTS</Text>
                             </View>
                             <View style={styles.countBadgeAbsent}>
-                                <Text style={styles.countTextAbsent}>5</Text>
+                                <Text style={styles.countTextAbsent}>{filteredAbsentStudents.length}</Text>
                             </View>
                         </View>
 
-                        <View style={styles.studentList}>
-                            {absentStudents.map((student) => (
-                                <View key={student.id} style={styles.studentCardAbsent}>
-                                    <View style={styles.absentIndicator} />
-                                    <View style={styles.avatarAbsent}>
-                                        <Text style={styles.avatarTextAbsent}>{student.initials}</Text>
-                                    </View>
-                                    <View style={styles.studentInfo}>
-                                        <Text style={styles.studentNameAbsent}>{student.name}</Text>
-                                        <Text style={styles.studentId}>ID: {student.id}</Text>
-                                    </View>
-                                    <TouchableOpacity style={styles.statusButtonAbsent} activeOpacity={0.7}>
-                                        <MaterialIcons name="close" size={20} color="#8E8E93" />
-                                    </TouchableOpacity>
-                                </View>
-                            ))}
-                        </View>
+                        {filteredAbsentStudents.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <MaterialIcons name="check-circle" size={48} color="#10B981" />
+                                <Text style={styles.emptyText}>No absent students</Text>
+                            </View>
+                        ) : (
+                            <View style={styles.studentList}>
+                                {filteredAbsentStudents.map((student) => {
+                                    const initials = getInitials(student.student_name);
+                                    
+                                    return (
+                                        <View key={student.id} style={styles.studentCardAbsent}>
+                                            <View style={styles.absentIndicator} />
+                                            <View style={styles.avatarAbsent}>
+                                                <Text style={styles.avatarTextAbsent}>{initials}</Text>
+                                            </View>
+                                            <View style={styles.studentInfo}>
+                                                <Text style={styles.studentNameAbsent}>{student.student_name}</Text>
+                                                <Text style={styles.studentId}>{student.student_email}</Text>
+                                            </View>
+                                            <TouchableOpacity style={styles.statusButtonAbsent} activeOpacity={0.7}>
+                                                <MaterialIcons name="close" size={20} color="#8E8E93" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    );
+                                })}
+                            </View>
+                        )}
                     </View>
                 </ScrollView>
+                )}
             </SafeAreaView>
         </View>
     );
@@ -420,5 +527,31 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255, 255, 255, 0.1)',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 16,
+    },
+    loadingText: {
+        color: '#8E8E93',
+        fontSize: 16,
+    },
+    emptyState: {
+        alignItems: 'center',
+        paddingVertical: 48,
+        gap: 12,
+    },
+    emptyText: {
+        color: '#8E8E93',
+        fontSize: 16,
+    },
+    timeContainer: {
+        marginRight: 8,
+    },
+    timeText: {
+        fontSize: 12,
+        color: '#8E8E93',
     },
 });

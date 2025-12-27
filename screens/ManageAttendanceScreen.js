@@ -1,13 +1,56 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Platform, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
+import { auth0 } from '../lib/auth0';
 
 export default function ManageAttendanceScreen({ navigation, route }) {
-    const configuredClasses = route.params?.configuredClasses || [];
-    const activeSession = configuredClasses.length > 0 ? configuredClasses[0] : null;
-    
+    const [configuredClasses, setConfiguredClasses] = useState([]);
+    const [activeSession, setActiveSession] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [activeSessionTime, setActiveSessionTime] = useState({ hours: 0, minutes: 0, seconds: 0 });
+
+    useEffect(() => {
+        fetchClasses();
+        fetchActiveSession();
+    }, []);
+
+    const fetchClasses = async () => {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('classes')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            setConfiguredClasses(data || []);
+        } catch (error) {
+            console.error('Error fetching classes:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchActiveSession = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('attendance_sessions')
+                .select('*, classes(*)')
+                .eq('is_active', true)
+                .order('started_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows returned
+
+            setActiveSession(data);
+        } catch (error) {
+            console.error('Error fetching active session:', error);
+        }
+    };
 
     useEffect(() => {
         // Timer simulation
@@ -37,16 +80,83 @@ export default function ManageAttendanceScreen({ navigation, route }) {
         return `${String(time.hours).padStart(2, '0')}:${String(time.minutes).padStart(2, '0')}:${String(time.seconds).padStart(2, '0')}`;
     };
 
-    // Filter out the active session from upcoming sessions
-    const upcomingSessions = configuredClasses.slice(1).map((classItem, index) => ({
-        id: classItem.id,
-        subject: classItem.subject,
-        time: classItem.startTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }),
-        room: 'Room ' + (101 + index),
-        icon: index % 2 === 0 ? 'calculate' : 'science',
-        color1: index % 2 === 0 ? '#3B82F6' : '#EC4899',
-        color2: index % 2 === 0 ? '#A855F7' : '#F97316',
-    }));
+    const startSession = async (classItem) => {
+        try {
+            const user = await auth0.getUser();
+            
+            // Generate a unique session code
+            const sessionCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+            const { data, error } = await supabase
+                .from('attendance_sessions')
+                .insert([{
+                    class_id: classItem.id,
+                    session_code: sessionCode,
+                    is_active: true,
+                    created_by: user?.sub
+                }])
+                .select('*, classes(*)')
+                .single();
+
+            if (error) throw error;
+
+            setActiveSession(data);
+            setActiveSessionTime({ hours: 0, minutes: 0, seconds: 0 });
+            
+            Alert.alert('Success', `Session started!\\nSession Code: ${sessionCode}`);
+        } catch (error) {
+            console.error('Error starting session:', error);
+            Alert.alert('Error', 'Failed to start session: ' + error.message);
+        }
+    };
+
+    const stopSession = async () => {
+        if (!activeSession) return;
+
+        try {
+            const { error } = await supabase
+                .from('attendance_sessions')
+                .update({ 
+                    is_active: false,
+                    ended_at: new Date().toISOString()
+                })
+                .eq('id', activeSession.id);
+
+            if (error) throw error;
+
+            setActiveSession(null);
+            setActiveSessionTime({ hours: 0, minutes: 0, seconds: 0 });
+            
+            Alert.alert('Success', 'Session stopped successfully');
+            fetchClasses();
+        } catch (error) {
+            console.error('Error stopping session:', error);
+            Alert.alert('Error', 'Failed to stop session');
+        }
+    };
+
+    const getUpcomingSessions = () => {
+        // Filter out active session if it exists
+        const filtered = activeSession 
+            ? configuredClasses.filter(c => c.id !== activeSession.class_id)
+            : configuredClasses;
+
+        return filtered.map((classItem, index) => {
+            const startTime = new Date(`2000-01-01T${classItem.start_time}`);
+            return {
+                id: classItem.id,
+                classData: classItem,
+                subject: classItem.subject,
+                time: startTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }),
+                room: classItem.room_number || 'Room ' + (101 + index),
+                icon: index % 2 === 0 ? 'calculate' : 'science',
+                color1: index % 2 === 0 ? '#3B82F6' : '#EC4899',
+                color2: index % 2 === 0 ? '#A855F7' : '#F97316',
+            };
+        });
+    };
+
+    const upcomingSessions = getUpcomingSessions();
 
     return (
         <View style={styles.container}>
@@ -55,7 +165,7 @@ export default function ManageAttendanceScreen({ navigation, route }) {
                 <View style={styles.header}>
                     <TouchableOpacity 
                         style={styles.backButton}
-                        onPress={() => navigation.goBack()}
+                        onPress={() => navigation.navigate('AttendanceAdmin')}
                         activeOpacity={0.7}
                     >
                         <MaterialIcons name="arrow-back" size={24} color="#ffffff" />
@@ -80,47 +190,68 @@ export default function ManageAttendanceScreen({ navigation, route }) {
                         <Text style={styles.sectionTitle}>CURRENT ACTIVE SESSION</Text>
                     </View>
 
-                    <View style={styles.activeSessionCard}>
-                        {/* Glowing background effect */}
-                        <View style={styles.glowingCircle} />
-                        
-                        <View style={styles.activeSessionHeader}>
-                            <Text style={styles.activeSessionSubject}>
-                                {activeSession ? activeSession.subject : 'No Active Session'}
-                            </Text>
-                            <View style={styles.timerContainer}>
-                                <Text style={styles.timerText}>{formatTime(activeSessionTime)}</Text>
-                            </View>
+                    {loading ? (
+                        <View style={styles.loadingCard}>
+                            <ActivityIndicator size="large" color="#0A84FF" />
+                            <Text style={styles.loadingText}>Loading sessions...</Text>
                         </View>
-
-                        <TouchableOpacity 
-                            style={styles.viewAttendanceButton}
-                            activeOpacity={0.8}
-                            onPress={() => navigation.navigate('AttendanceList')}
-                        >
-                            <View style={styles.buttonContent}>
-                                <View style={styles.buttonLeft}>
-                                    <MaterialIcons name="fact-check" size={24} color="#ffffff" />
-                                    <Text style={styles.buttonText}>View Attendance</Text>
+                    ) : activeSession ? (
+                        <View style={styles.activeSessionCard}>
+                            {/* Glowing background effect */}
+                            <View style={styles.glowingCircle} />
+                            
+                            <View style={styles.activeSessionHeader}>
+                                <Text style={styles.activeSessionSubject}>
+                                    {activeSession.classes?.subject || activeSession.classes?.name}
+                                </Text>
+                                <View style={styles.timerContainer}>
+                                    <Text style={styles.timerText}>{formatTime(activeSessionTime)}</Text>
                                 </View>
-                                <MaterialIcons name="chevron-right" size={24} color="#ffffff" />
                             </View>
-                        </TouchableOpacity>
 
-                        <TouchableOpacity 
-                            style={styles.stopButton}
-                            activeOpacity={0.8}
-                        >
-                            <MaterialIcons name="stop-circle" size={24} color="#ffffff" />
-                            <Text style={styles.stopButtonText}>Stop Session</Text>
-                        </TouchableOpacity>
-                    </View>
+                            {activeSession.session_code && (
+                                <View style={styles.sessionCodeCard}>
+                                    <Text style={styles.sessionCodeLabel}>Session Code</Text>
+                                    <Text style={styles.sessionCodeText}>{activeSession.session_code}</Text>
+                                </View>
+                            )}
+
+                            <TouchableOpacity 
+                                style={styles.viewAttendanceButton}
+                                activeOpacity={0.8}
+                                onPress={() => navigation.navigate('AttendanceList', { sessionId: activeSession.id })}
+                            >
+                                <View style={styles.buttonContent}>
+                                    <View style={styles.buttonLeft}>
+                                        <MaterialIcons name="fact-check" size={24} color="#ffffff" />
+                                        <Text style={styles.buttonText}>View Attendance</Text>
+                                    </View>
+                                    <MaterialIcons name="chevron-right" size={24} color="#ffffff" />
+                                </View>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity 
+                                style={styles.stopButton}
+                                activeOpacity={0.8}
+                                onPress={stopSession}
+                            >
+                                <MaterialIcons name="stop-circle" size={24} color="#ffffff" />
+                                <Text style={styles.stopButtonText}>Stop Session</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <View style={styles.noSessionCard}>
+                            <MaterialIcons name="event-busy" size={48} color="#8E8E93" />
+                            <Text style={styles.noSessionText}>No Active Session</Text>
+                            <Text style={styles.noSessionSubtext}>Start a session from the list below</Text>
+                        </View>
+                    )}
 
                     {/* Upcoming Sessions */}
                     <View style={styles.upcomingHeader}>
-                        <Text style={styles.sectionTitle}>UPCOMING TODAY</Text>
+                        <Text style={styles.sectionTitle}>AVAILABLE CLASSES</Text>
                         <View style={styles.countBadge}>
-                            <Text style={styles.countText}>{upcomingSessions.length} sessions</Text>
+                            <Text style={styles.countText}>{upcomingSessions.length} classes</Text>
                         </View>
                     </View>
 
@@ -143,8 +274,17 @@ export default function ManageAttendanceScreen({ navigation, route }) {
                                         <Text style={styles.sessionRoom}>{session.room}</Text>
                                     </View>
                                 </View>
-                                <TouchableOpacity style={styles.playButton} activeOpacity={0.7}>
-                                    <MaterialIcons name="play-arrow" size={24} color="#8E8E93" />
+                                <TouchableOpacity 
+                                    style={styles.playButton} 
+                                    activeOpacity={0.7}
+                                    onPress={() => startSession(session.classData)}
+                                    disabled={!!activeSession}
+                                >
+                                    <MaterialIcons 
+                                        name="play-arrow" 
+                                        size={24} 
+                                        color={activeSession ? "#444" : "#8E8E93"} 
+                                    />
                                 </TouchableOpacity>
                             </View>
                         ))}
@@ -418,6 +558,60 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    loadingCard: {
+        backgroundColor: 'rgba(28, 28, 46, 0.8)',
+        borderRadius: 24,
+        padding: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 32,
+    },
+    loadingText: {
+        color: '#8E8E93',
+        marginTop: 12,
+        fontSize: 14,
+    },
+    noSessionCard: {
+        backgroundColor: 'rgba(28, 28, 46, 0.8)',
+        borderRadius: 24,
+        padding: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 32,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    noSessionText: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#ffffff',
+        marginTop: 16,
+    },
+    noSessionSubtext: {
+        fontSize: 14,
+        color: '#8E8E93',
+        marginTop: 8,
+    },
+    sessionCodeCard: {
+        backgroundColor: 'rgba(10, 132, 255, 0.1)',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(10, 132, 255, 0.2)',
+    },
+    sessionCodeLabel: {
+        fontSize: 12,
+        color: '#8E8E93',
+        marginBottom: 4,
+    },
+    sessionCodeText: {
+        fontSize: 28,
+        fontWeight: 'bold',
+        color: '#0A84FF',
+        letterSpacing: 4,
     },
     bottomButtonContainer: {
         position: 'absolute',

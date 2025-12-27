@@ -14,6 +14,7 @@ import AdminDashboardScreen from './screens/AdminDashboardScreen';
 import AttendanceAdminScreen from './screens/AttendanceAdminScreen';
 import ManageAttendanceScreen from './screens/ManageAttendanceScreen';
 import AttendanceListScreen from './screens/AttendanceListScreen';
+import StudentAttendanceScreen from './screens/StudentAttendanceScreen';
 import NoticesScreen from './screens/NoticesScreen';
 import LearningHubScreen from './screens/LearningHubScreen';
 import SubjectTopicsScreen from './screens/SubjectTopicsScreen';
@@ -35,6 +36,7 @@ const linking = {
       AttendanceAdmin: 'attendance-admin',
       ManageAttendance: 'manage-attendance',
       AttendanceList: 'attendance-list',
+      StudentAttendance: 'student-attendance',
       Notices: 'notices',
       LearningHub: 'learning-hub',
       SubjectTopics: 'subject-topics',
@@ -70,6 +72,7 @@ export default function App() {
             <Stack.Screen name="AttendanceAdmin" component={AttendanceAdminScreen} />
             <Stack.Screen name="ManageAttendance" component={ManageAttendanceScreen} />
             <Stack.Screen name="AttendanceList" component={AttendanceListScreen} />
+            <Stack.Screen name="StudentAttendance" component={StudentAttendanceScreen} />
             <Stack.Screen name="Notices" component={NoticesScreen} />
             <Stack.Screen name="LearningHub" component={LearningHubScreen} />
             <Stack.Screen name="SubjectTopics" component={SubjectTopicsScreen} />
