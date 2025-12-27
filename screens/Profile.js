@@ -21,6 +21,28 @@ export default function SignUpScreen({ navigation }) {
         }
     };
 
+    const takePhoto = async () => {
+        // Request camera permissions
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        
+        if (status !== 'granted') {
+            alert('Sorry, we need camera permissions to scan your student ID!');
+            return;
+        }
+
+        // Launch camera
+        let result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            setImage(result.assets[0].uri);
+        }
+    };
+
     return (
         <View style={styles.container}>
             <SafeAreaView style={styles.safeArea}>
@@ -44,11 +66,20 @@ export default function SignUpScreen({ navigation }) {
 
                         <TouchableOpacity
                             style={styles.button}
+                            onPress={takePhoto}
+                            activeOpacity={0.8}
+                        >
+                            <MaterialIcons name="camera-alt" size={20} color="#CBD5E1" style={{ marginRight: 8 }} />
+                            <Text style={styles.buttonText}>Scan with Camera</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.button, { marginTop: 12 }]}
                             onPress={pickImage}
                             activeOpacity={0.8}
                         >
                             <MaterialIcons name="upload-file" size={20} color="#CBD5E1" style={{ marginRight: 8 }} />
-                            <Text style={styles.buttonText}>{image ? 'Change Image' : 'Select Image'}</Text>
+                            <Text style={styles.buttonText}>{image ? 'Change Image' : 'Select from Gallery'}</Text>
                         </TouchableOpacity>
 
                         {image && (

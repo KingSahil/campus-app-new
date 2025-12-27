@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
+  StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -69,21 +70,21 @@ const NoticesScreen = ({ navigation }) => {
 
   const NoticeItem = ({ notice }) => (
     <TouchableOpacity
-      className="flex-row items-center justify-between px-4 py-3 min-h-[72px] active:bg-white/5"
+      style={styles.noticeItem}
       onPress={() => {
         // Handle notice tap
         console.log('Notice tapped:', notice.title);
       }}
     >
-      <View className="flex-row items-center flex-1">
-        <View className="w-12 h-12 rounded-lg bg-[#283039] items-center justify-center mr-4">
+      <View style={styles.noticeContent}>
+        <View style={styles.iconBox}>
           <Ionicons name={notice.icon} size={24} color={notice.iconColor} />
         </View>
-        <View className="flex-1">
-          <Text className="text-white/90 text-base font-medium leading-normal" numberOfLines={1}>
+        <View style={styles.noticeTextContainer}>
+          <Text style={styles.noticeTitle} numberOfLines={1}>
             {notice.title}
           </Text>
-          <Text className="text-[#9dabb9] text-sm font-normal leading-normal" numberOfLines={2}>
+          <Text style={styles.noticeSubtitle} numberOfLines={2}>
             {notice.source} - {notice.time}
           </Text>
         </View>
@@ -93,8 +94,8 @@ const NoticesScreen = ({ navigation }) => {
   );
 
   const NoticeSection = ({ title, notices }) => (
-    <View className="mt-4">
-      <Text className="px-4 pb-2 pt-4 text-lg font-bold leading-tight text-white/90">
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>
         {title}
       </Text>
       <View>
@@ -106,38 +107,120 @@ const NoticesScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-[#101922]">
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#101922" />
       
       {/* Header */}
-      <View className="px-4 pb-2 pt-4">
-        <View className="flex-row items-center justify-between h-12 mb-2">
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
           <TouchableOpacity 
-            className="w-12 h-12 items-center justify-center"
+            style={styles.headerButton}
             onPress={() => navigation.goBack()}
           >
             <Ionicons name="arrow-back" size={24} color="rgba(255,255,255,0.9)" />
           </TouchableOpacity>
-          <TouchableOpacity className="w-12 h-12 items-center justify-center">
+          <TouchableOpacity style={styles.headerButton}>
             <Ionicons name="search" size={24} color="rgba(255,255,255,0.9)" />
           </TouchableOpacity>
         </View>
-        <Text className="text-[28px] font-bold leading-tight text-white/90">
+        <Text style={styles.title}>
           Notices
         </Text>
       </View>
 
       {/* Content */}
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <NoticeSection title="Urgent Notices" notices={urgentNotices} />
         <NoticeSection title="General Announcements" notices={generalAnnouncements} />
         <NoticeSection title="Course Specific Notes" notices={courseSpecificNotes} />
         
         {/* Bottom padding for navigation */}
-        <View className="h-24" />
+        <View style={styles.bottomPadding} />
       </ScrollView>
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#101922',
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    paddingTop: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 48,
+    marginBottom: 8,
+  },
+  headerButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'rgba(255,255,255,0.9)',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  section: {
+    marginTop: 16,
+  },
+  sectionTitle: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    paddingTop: 16,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'rgba(255,255,255,0.9)',
+  },
+  noticeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 72,
+  },
+  noticeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  iconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#283039',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  noticeTextContainer: {
+    flex: 1,
+  },
+  noticeTitle: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  noticeSubtitle: {
+    color: '#9dabb9',
+    fontSize: 14,
+    marginTop: 2,
+  },
+  bottomPadding: {
+    height: 96,
+  },
+});
 
 export default NoticesScreen;
