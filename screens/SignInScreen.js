@@ -3,8 +3,6 @@ import { StyleSheet, Text, View, TouchableOpacity, Platform } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
-import * as AuthSession from 'expo-auth-session';
-import { supabase, createProfile, getProfile } from '../lib/supabase';
 
 const GoogleIcon = () => (
     <Svg width="24" height="24" viewBox="0 0 24 24">
@@ -17,44 +15,10 @@ const GoogleIcon = () => (
 
 export default function SignInScreen({ navigation }) {
 
-    console.log(
-        AuthSession.makeRedirectUri({ useProxy: true })
-    );
-    React.useEffect(() => {
-        const { data: listener } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
-                if (session?.user) {
-                    const { data: profile } = await getProfile(session.user.id);
-
-                    if (!profile) {
-                        await createProfile(session.user);
-                    }
-
-                    navigation.replace('Profile');
-                }
-            }
-        );
-
-        return () => {
-            listener.subscription.unsubscribe();
-        };
-    }, []);
-
     const handleGoogleSignIn = async () => {
-        const redirectUrl = AuthSession.makeRedirectUri({
-            useProxy: true,
-        });
-
-        const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: redirectUrl,
-            },
-        });
-
-        if (error) {
-            console.log(error.message);
-        }
+        // TODO: Implement InsForge authentication once documentation is available
+        // For now, navigate directly to Profile screen
+        navigation.navigate('Profile');
     };
 
     return (

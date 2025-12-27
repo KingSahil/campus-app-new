@@ -17,7 +17,10 @@ export default function SignUpScreen({ navigation }) {
         });
 
         if (!result.canceled) {
-            setImage(result.assets[0].uri);
+            const imageUri = result.assets[0].uri;
+            setImage(imageUri);
+            // Navigate to ProfileEnterScreen with the image
+            navigation.navigate('ProfileEnter', { image: imageUri });
         }
     };
 
@@ -39,7 +42,10 @@ export default function SignUpScreen({ navigation }) {
         });
 
         if (!result.canceled) {
-            setImage(result.assets[0].uri);
+            const imageUri = result.assets[0].uri;
+            setImage(imageUri);
+            // Navigate to ProfileEnterScreen with the image
+            navigation.navigate('ProfileEnter', { image: imageUri });
         }
     };
 
@@ -79,19 +85,17 @@ export default function SignUpScreen({ navigation }) {
                             activeOpacity={0.8}
                         >
                             <MaterialIcons name="upload-file" size={20} color="#CBD5E1" style={{ marginRight: 8 }} />
-                            <Text style={styles.buttonText}>{image ? 'Change Image' : 'Select from Gallery'}</Text>
+                            <Text style={styles.buttonText}>Select from Gallery</Text>
                         </TouchableOpacity>
 
-                        {image && (
-                            <TouchableOpacity
-                                style={[styles.button, { marginTop: 16, backgroundColor: '#C084FC', borderColor: '#C084FC' }]}
-                                onPress={() => navigation.navigate('GetStarted')}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={[styles.buttonText, { color: '#ffffff' }]}>Continue</Text>
-                                <MaterialIcons name="arrow-forward" size={20} color="#ffffff" style={{ marginLeft: 8 }} />
-                            </TouchableOpacity>
-                        )}
+                        <TouchableOpacity
+                            style={[styles.button, { marginTop: 12 }]}
+                            onPress={() => navigation.navigate('ProfileEnter', { image: null })}
+                            activeOpacity={0.8}
+                        >
+                            <MaterialIcons name="edit" size={20} color="#CBD5E1" style={{ marginRight: 8 }} />
+                            <Text style={styles.buttonText}>Enter Manually</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </SafeAreaView>
