@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, TextInput, ActivityIndicator, Alert, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { WebView } from 'react-native-web-webview';
+import YoutubePlayer from 'react-native-youtube-iframe';
 
 const { width } = Dimensions.get('window');
 
@@ -50,7 +50,6 @@ export default function LectureVideoScreen({ navigation, route }) {
     const [currentTime, setCurrentTime] = useState(0);
     
     // AI Summarizer states
-    const [timestamp, setTimestamp] = useState('');
     const [userQuestion, setUserQuestion] = useState('');
     const [summary, setSummary] = useState('')
     const [loadingSummary, setLoadingSummary] = useState(false);
@@ -65,43 +64,31 @@ export default function LectureVideoScreen({ navigation, route }) {
     const youtubeVideoId = getYouTubeVideoId(video.url);
     const isYouTubeVideo = youtubeVideoId !== null;
 
-    // Format seconds to MM:SS
-    const formatTime = (seconds) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    };
-
-    // Auto-capture current timestamp
-    const captureCurrentTime = () => {
-        if (currentTime > 0) {
-            setTimestamp(formatTime(currentTime));
-        }
-    };
-
     const generateSummary = async () => {
-        if (!timestamp.trim() && currentTime === 0) {
-            Alert.alert('Error', 'Please enter a timestamp or play the video');
+        if (!userQuestion.trim()) {
+            Alert.alert('Error', 'Please enter your question or doubt');
             return;
         }
-
-        const timeToUse = timestamp.trim() || formatTime(currentTime);
-        const questionContext = userQuestion.trim() 
-            ? `The student asks: "${userQuestion}". ` 
-            : '';
 
         setLoadingSummary(true);
         try {
             const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+            
+            if (!apiKey) {
+                Alert.alert('Error', 'Gemini API key not configured. Please add EXPO_PUBLIC_GEMINI_API_KEY to your .env file');
+                setLoadingSummary(false);
+                return;
+            }
+
             const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         contents: [{
                             parts: [{
-                                text: `${questionContext}Provide a detailed summary and explanation for the video titled "${video.title}" at timestamp ${timeToUse}. Focus on answering the student's question if provided, otherwise explain the main concepts, important takeaways, and any formulas or definitions mentioned around this time. Format the response with clear headings and bullet points.`
+                                text: `The student is watching the video titled "${video.title}" and asks: "${userQuestion}". Provide a detailed explanation and answer to their question. Include relevant concepts, formulas, definitions, and examples. Format the response with clear headings and bullet points.`
                             }]
                         }]
                     })
@@ -109,12 +96,21 @@ export default function LectureVideoScreen({ navigation, route }) {
             );
 
             const data = await response.json();
+            
+            // Check for API errors
+            if (data.error) {
+                Alert.alert('API Error', data.error.message || 'Failed to generate summary');
+                return;
+            }
+            
             if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
                 setSummary(data.candidates[0].content.parts[0].text);
             } else {
-                Alert.alert('Error', 'Failed to generate summary');
+                console.log('API Response:', JSON.stringify(data, null, 2));
+                Alert.alert('Error', 'No summary generated. Please try again.');
             }
         } catch (error) {
+            console.error('Summary Error:', error);
             Alert.alert('Error', 'Failed to generate summary: ' + error.message);
         } finally {
             setLoadingSummary(false);
@@ -126,7 +122,7 @@ export default function LectureVideoScreen({ navigation, route }) {
         try {
             const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
             const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -143,17 +139,26 @@ export default function LectureVideoScreen({ navigation, route }) {
             const data = await response.json();
             if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
                 const text = data.candidates[0].content.parts[0].text;
-                const jsonMatch = text.match(/\[.*\]/s);
+                
+                // Remove markdown code blocks if present
+                const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+                
+                // Try to extract JSON array
+                const jsonMatch = cleanedText.match(/\[[\s\S]*\]/);
                 if (jsonMatch) {
                     const quizData = JSON.parse(jsonMatch[0]);
-                    setQuiz(quizData);
-                    setSelectedAnswers({});
-                    setShowResults(false);
+                    if (Array.isArray(quizData) && quizData.length > 0) {
+                        setQuiz(quizData);
+                        setSelectedAnswers({});
+                        setShowResults(false);
+                    } else {
+                        Alert.alert('Error', 'Invalid quiz format received');
+                    }
                 } else {
-                    Alert.alert('Error', 'Failed to parse quiz data');
+                    Alert.alert('Error', 'Failed to parse quiz data. Please try again.');
                 }
             } else {
-                Alert.alert('Error', 'Failed to generate quiz');
+                Alert.alert('Error', 'Failed to generate quiz. Please check your API key.');
             }
         } catch (error) {
             Alert.alert('Error', 'Failed to generate quiz: ' + error.message);
@@ -200,47 +205,19 @@ export default function LectureVideoScreen({ navigation, route }) {
                         <View style={styles.aiCard}>
                             <MaterialIcons name="auto-awesome" size={32} color="#8B5CF6" />
                             <Text style={styles.aiText}>
-                                Get AI-powered summaries for specific timestamps
+                                Ask AI anything about this video
                             </Text>
                             
-                            <View style={styles.timestampSection}>
-                                <View style={styles.timestampRow}>
-                                    <View style={styles.timestampInput}>
-                                        <Text style={styles.inputLabel}>Timestamp</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="e.g., 5:30"
-                                            placeholderTextColor="#6B7280"
-                                            value={timestamp}
-                                            onChangeText={setTimestamp}
-                                        />
-                                    </View>
-                                    <TouchableOpacity 
-                                        style={styles.captureButton}
-                                        onPress={captureCurrentTime}
-                                    >
-                                        <MaterialIcons name="access-time" size={24} color="#8B5CF6" />
-                                        <Text style={styles.captureText}>Capture</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                
-                                {currentTime > 0 && (
-                                    <Text style={styles.currentTimeText}>
-                                        Current: {formatTime(currentTime)}
-                                    </Text>
-                                )}
-                            </View>
-                            
                             <View style={styles.questionInput}>
-                                <Text style={styles.inputLabel}>Your Question or Doubt (Optional)</Text>
+                                <Text style={styles.inputLabel}>Your Question or Doubt</Text>
                                 <TextInput
                                     style={[styles.input, styles.multilineInput]}
-                                    placeholder="What is the doubt? What do you want to know?"
+                                    placeholder="What do you want to know about this video?"
                                     placeholderTextColor="#6B7280"
                                     value={userQuestion}
                                     onChangeText={setUserQuestion}
                                     multiline
-                                    numberOfLines={3}
+                                    numberOfLines={4}
                                 />
                             </View>
                             
@@ -260,7 +237,7 @@ export default function LectureVideoScreen({ navigation, route }) {
                         {summary ? (
                             <View style={styles.summaryCard}>
                                 <Text style={styles.summaryTitle}>
-                                    {userQuestion ? `Answer: ${userQuestion.substring(0, 50)}...` : `Summary for ${timestamp || formatTime(currentTime)}`}
+                                    Answer
                                 </Text>
                                 <Text style={styles.summaryText}>{summary}</Text>
                             </View>
@@ -393,34 +370,20 @@ export default function LectureVideoScreen({ navigation, route }) {
                 {/* Video Player */}
                 <View style={styles.videoContainer}>
                     {isYouTubeVideo ? (
-                        <WebView
-                            style={styles.video}
-                            source={{ html: `
-                                <!DOCTYPE html>
-                                <html>
-                                <head>
-                                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                                    <style>
-                                        body { margin: 0; padding: 0; background: #000; }
-                                        iframe { border: none; }
-                                    </style>
-                                </head>
-                                <body>
-                                    <iframe
-                                        width="100%"
-                                        height="100%"
-                                        src="https://www.youtube.com/embed/${youtubeVideoId}?enablejsapi=1"
-                                        frameborder="0"
-                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                        allowfullscreen
-                                    ></iframe>
-                                </body>
-                                </html>
-                            ` }}
-                            javaScriptEnabled={true}
-                            domStorageEnabled={true}
-                            allowsFullscreenVideo={true}
-                        />
+                        Platform.OS === 'web' ? (
+                            <iframe
+                                style={{ width: '100%', height: '100%', border: 'none' }}
+                                src={`https://www.youtube.com/embed/${youtubeVideoId}?enablejsapi=1`}
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                            />
+                        ) : (
+                            <YoutubePlayer
+                                height={width * 9 / 16}
+                                videoId={youtubeVideoId}
+                                play={false}
+                            />
+                        )
                     ) : (
                         <DirectVideoPlayer videoUrl={video.url} onTimeUpdate={setCurrentTime} />
                     )}
