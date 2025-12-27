@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Videos List</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#4F46E5",
+            "background-light": "#F3F4F6",
+            "background-dark": "#111827",
+            "card-light": "#FFFFFF",
+            "card-dark": "#1F2937",
+            "text-primary-light": "#1F2937",
+            "text-primary-dark": "#F9FAFB",
+            "text-secondary-light": "#6B7280",
+            "text-secondary-dark": "#9CA3AF",
+            "border-light": "#E5E7EB",
+            "border-dark": "#374151"
+          },
+          fontFamily: {
+            display: ["Poppins", "sans-serif"],
+          },
+          borderRadius: {
+            DEFAULT: "0.75rem",
+          },
+        },
+      },
+    };
+  </script>
+<style>
+    body {
+      font-family: 'Poppins', sans-serif;
+    }
+    .bg-gradient-radial-custom {
+      background-image: radial-gradient(circle at top right, rgba(79, 70, 229, 0.4), transparent 50%), radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.3), transparent 60%);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+<div class="dark">
+<div class="min-h-screen max-w-md mx-auto flex flex-col bg-background-dark relative">
+<div class="absolute inset-0 bg-gradient-radial-custom z-0"></div>
+<div class="relative z-10 flex flex-col flex-grow">
+<header class="p-4 flex items-center">
+<button class="p-2 rounded-full hover:bg-gray-200/10">
+<span class="material-icons text-text-primary-dark">arrow_back_ios_new</span>
+</button>
+<h1 class="text-xl font-bold text-center flex-grow text-text-primary-dark pr-10">
+            Videos
+          </h1>
+</header>
+<main class="flex-grow px-4 pb-4 space-y-4">
+<div class="flex items-start space-x-3">
+<div class="w-32 flex-shrink-0">
+<div class="aspect-video w-full rounded-lg overflow-hidden relative">
+<img alt="Video thumbnail for Quantum Physics Explained" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBIECouIhqZOfqptHZ8hKQH357-Gb_9GC1vayy5hXaXED-l-I28KfApxkszjLhSXGYIZ7pWKPPIn3ksHOuecOE_kF3Yu61f82Z9zRbJ8hZtFy-RaXiLRei-TLne9Suilf8ouQHOoEffQ7ylTRmor4QATXkH6tua-JCd_hBUnKmlb0Hd7xsBroYAO-muK4FY4O8UBMMvTLfDrw5Njsa1qgp3csYkNSrr_iQXyWm0ZSZFTnC9CpqM1Sy650Hu2tYgAyKCKOTzuLeTOlE"/>
+<div class="absolute inset-0 bg-black/30 flex items-center justify-center">
+<span class="material-icons text-white/80 text-3xl">play_circle_outline</span>
+</div>
+</div>
+</div>
+<div class="flex-grow">
+<h2 class="font-semibold text-text-primary-dark leading-snug">Quantum Physics Explained in 10 Minutes</h2>
+<div class="flex items-center text-sm text-text-secondary-dark mt-1">
+<span class="material-icons text-base mr-1 text-primary">thumb_up_off_alt</span>
+<span>20 upvotes</span>
+</div>
+</div>
+</div>
+<div class="flex items-start space-x-3">
+<div class="w-32 flex-shrink-0">
+<div class="aspect-video w-full rounded-lg overflow-hidden relative">
+<img alt="Video thumbnail for Intro to Machine Learning" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtu9ZZa6bz3IOfB5Lc-l9Hs1bfi8341lRICvbzngbBgST2QK6irwnHn75g1I7iGhbF3FMAWq1hM5FIFPqwzDmmvr_5swp1-xawNYNlBwN3E5Aj6iEQKYXqaCfvCn28XEHuxUm7yvkif6uPOKu23-_M1UATLkcoDm3q2j72oChZyM-l_Qp05wGGVzmnzTtSIkpccjDXIiNJPICgZwAz1UYDcZyhCd4qNXdZY3yk0gXZpeLKtH4LMNV153eq0HK__fcbfF-5Ggc6IcU"/>
+<div class="absolute inset-0 bg-black/30 flex items-center justify-center">
+<span class="material-icons text-white/80 text-3xl">play_circle_outline</span>
+</div>
+</div>
+</div>
+<div class="flex-grow">
+<h2 class="font-semibold text-text-primary-dark leading-snug">Intro to Machine Learning: A Beginner's Guide</h2>
+<div class="flex items-center text-sm text-text-secondary-dark mt-1">
+<span class="material-icons text-base mr-1 text-primary">thumb_up_off_alt</span>
+<span>10 upvotes</span>
+</div>
+</div>
+</div>
+</main>
+<div class="p-4 sticky bottom-16 z-10">
+<button class="w-full bg-primary text-white font-semibold py-3 rounded-lg flex items-center justify-center space-x-2 shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 transition-colors duration-300">
+<span class="material-icons">add_circle_outline</span>
+<span>Add Video</span>
+</button>
+</div>
+<nav class="sticky bottom-0 bg-card-dark/60 backdrop-blur-sm border-t border-white/10 shadow-t-lg">
+<div class="flex justify-around items-center h-16">
+<a class="flex flex-col items-center text-text-secondary-dark hover:text-primary transition-colors duration-200" href="#">
+<span class="material-icons">dashboard</span>
+<span class="text-xs font-medium">Dashboard</span>
+</a>
+<a class="flex flex-col items-center text-primary" href="#">
+<span class="material-icons">school</span>
+<span class="text-xs font-bold">Learning</span>
+</a>
+<a class="flex flex-col items-center text-text-secondary-dark hover:text-primary transition-colors duration-200" href="#">
+<span class="material-icons">event_available</span>
+<span class="text-xs font-medium">Attendance</span>
+</a>
+<a class="flex flex-col items-center text-text-secondary-dark hover:text-primary transition-colors duration-200" href="#">
+<span class="material-icons">notifications</span>
+<span class="text-xs font-medium">Notices</span>
+</a>
+<a class="flex flex-col items-center text-text-secondary-dark hover:text-primary transition-colors duration-200" href="#">
+<span class="material-icons">person</span>
+<span class="text-xs font-medium">Profile</span>
+</a>
+</div>
+</nav>
+</div>
+</div>
+</div>
+
+</body></html>
