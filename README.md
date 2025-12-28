@@ -1,6 +1,21 @@
+
+
+
 # Campus Super App 🎓
 
 A comprehensive React Native mobile application designed to streamline campus life for students and administrators. Built with Expo, Auth0, and Supabase, this app provides a unified platform for managing academic activities, location-verified attendance tracking, learning hub with video content, and real-time discussions.
+
+<img width="847" height="424" alt="image" src="https://github.com/user-attachments/assets/a2761a54-0540-4c01-8f66-5c84a4cd78d7" />
+<img width="914" height="380" alt="image" src="https://github.com/user-attachments/assets/564afa60-76b6-45d1-8068-6020f56bdd82" />
+<img width="578" height="396" alt="image" src="https://github.com/user-attachments/assets/4f9e3438-e2c5-4578-9dd2-7ef1066b2a33" />
+<img width="887" height="518" alt="image" src="https://github.com/user-attachments/assets/3e46bd31-ecc4-4c04-bcc2-b6d658555b96" />
+<img width="695" height="471" alt="image" src="https://github.com/user-attachments/assets/0e6f10ce-8c64-4b5e-bde4-c84bb271e223" />
+
+
+
+
+
+
 
 ## ✨ Features
 
