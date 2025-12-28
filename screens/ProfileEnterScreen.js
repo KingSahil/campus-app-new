@@ -3,6 +3,8 @@ import { StyleSheet, Text, View, TouchableOpacity, TextInput, ScrollView, Activi
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { supabase } from '../lib/supabase';
+import { auth0 } from '../lib/auth0';
 
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
@@ -83,15 +85,75 @@ If any field is not visible or unclear, use an empty string. Only return valid J
         }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         // Validate required fields
         if (!formData.fullName || !formData.department || !formData.course || !formData.semester) {
             Alert.alert('Missing Information', 'Please fill in all required fields.');
             return;
         }
 
-        // Navigate to dashboard or next screen
-        navigation.navigate('GetStarted');
+        try {
+            setLoading(true);
+            const userInfo = await auth0.getUser();
+            const userData = userInfo?.data?.user || userInfo;
+            const userId = userData?.sub;
+            const userEmail = userData?.email;
+
+            if (!userId || !userEmail) {
+                Alert.alert('Error', 'Unable to get user information');
+                return;
+            }
+
+            // Check if profile exists
+            const { data: existingProfile } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .eq('user_id', userId)
+                .single();
+
+            if (existingProfile) {
+                // Update existing profile
+                const { error } = await supabase
+                    .from('user_profiles')
+                    .update({
+                        full_name: formData.fullName,
+                        department: formData.department,
+                        course: formData.course,
+                        semester: formData.semester,
+                        phone_number: formData.phoneNumber,
+                        profile_completed: true,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('user_id', userId);
+
+                if (error) throw error;
+            } else {
+                // Create new profile
+                const { error } = await supabase
+                    .from('user_profiles')
+                    .insert({
+                        user_id: userId,
+                        email: userEmail,
+                        full_name: formData.fullName,
+                        department: formData.department,
+                        course: formData.course,
+                        semester: formData.semester,
+                        phone_number: formData.phoneNumber,
+                        profile_completed: true,
+                        onboarding_completed: false,
+                    });
+
+                if (error) throw error;
+            }
+
+            // Navigate to GetStarted
+            navigation.navigate('GetStarted');
+        } catch (error) {
+            console.error('Error saving profile:', error);
+            Alert.alert('Error', 'Failed to save profile. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

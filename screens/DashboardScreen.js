@@ -1,9 +1,11 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Platform, Image, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Platform, Image, Alert, ActivityIndicator, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { auth0 } from '../lib/auth0';
 import { supabase } from '../lib/supabase';
+import BottomNav from '../components/BottomNav';
 
 // Helper function to generate a consistent UUID from a string
 const generateUUIDFromString = (str) => {
@@ -19,10 +21,157 @@ const generateUUIDFromString = (str) => {
     return `${hex.substr(0, 8)}-${hex.substr(0, 4)}-4${hex.substr(0, 3)}-${hex.substr(0, 4)}-${hex.substr(0, 12)}`.padEnd(36, '0');
 };
 
+// Campus location coordinates with high precision
+const CAMPUS_LOCATION = {
+    latitude: 13.054855548207236,
+    longitude: 80.07600107253903,
+    elevation: 21, // meters above sea level
+};
+
+const ALLOWED_DISTANCE = 200 // meters - tightened for better accuracy
+const MAX_GPS_ACCURACY = 200; // Only accept GPS readings with accuracy better than 200 meters
+const LOCATION_SAMPLES = 2; // Number of location samples to average (reduced for speed)
+const SAMPLE_DELAY = 300; // Delay between samples in milliseconds (reduced for faster verification)
+
+// Vincenty formula for more accurate distance calculation (up to 0.5mm precision)
+// This is more accurate than Haversine for short distances
+const calculateDistanceVincenty = (lat1, lon1, lat2, lon2) => {
+    const a = 6378137.0; // WGS-84 semi-major axis in meters
+    const b = 6356752.314245; // WGS-84 semi-minor axis in meters
+    const f = 1 / 298.257223563; // WGS-84 flattening
+
+    const L = (lon2 - lon1) * Math.PI / 180;
+    const U1 = Math.atan((1 - f) * Math.tan(lat1 * Math.PI / 180));
+    const U2 = Math.atan((1 - f) * Math.tan(lat2 * Math.PI / 180));
+    const sinU1 = Math.sin(U1), cosU1 = Math.cos(U1);
+    const sinU2 = Math.sin(U2), cosU2 = Math.cos(U2);
+
+    let lambda = L, lambdaP, iterLimit = 100;
+    let cosSqAlpha, sinSigma, cos2SigmaM, cosSigma, sigma;
+
+    do {
+        const sinLambda = Math.sin(lambda), cosLambda = Math.cos(lambda);
+        sinSigma = Math.sqrt((cosU2 * sinLambda) * (cosU2 * sinLambda) +
+            (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda) * (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda));
+        
+        if (sinSigma === 0) return 0; // Co-incident points
+        
+        cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cosLambda;
+        sigma = Math.atan2(sinSigma, cosSigma);
+        const sinAlpha = cosU1 * cosU2 * sinLambda / sinSigma;
+        cosSqAlpha = 1 - sinAlpha * sinAlpha;
+        cos2SigmaM = cosSigma - 2 * sinU1 * sinU2 / cosSqAlpha;
+        
+        if (isNaN(cos2SigmaM)) cos2SigmaM = 0; // Equatorial line
+        
+        const C = f / 16 * cosSqAlpha * (4 + f * (4 - 3 * cosSqAlpha));
+        lambdaP = lambda;
+        lambda = L + (1 - C) * f * sinAlpha *
+            (sigma + C * sinSigma * (cos2SigmaM + C * cosSigma * (-1 + 2 * cos2SigmaM * cos2SigmaM)));
+    } while (Math.abs(lambda - lambdaP) > 1e-12 && --iterLimit > 0);
+
+    if (iterLimit === 0) return NaN; // Formula failed to converge
+
+    const uSq = cosSqAlpha * (a * a - b * b) / (b * b);
+    const A = 1 + uSq / 16384 * (4096 + uSq * (-768 + uSq * (320 - 175 * uSq)));
+    const B = uSq / 1024 * (256 + uSq * (-128 + uSq * (74 - 47 * uSq)));
+    const deltaSigma = B * sinSigma * (cos2SigmaM + B / 4 * (cosSigma * (-1 + 2 * cos2SigmaM * cos2SigmaM) -
+        B / 6 * cos2SigmaM * (-3 + 4 * sinSigma * sinSigma) * (-3 + 4 * cos2SigmaM * cos2SigmaM)));
+
+    return b * A * (sigma - deltaSigma); // Distance in meters
+};
+
+// Calculate 3D distance with Vincenty formula for horizontal distance
+const calculate3DDistance = (lat1, lon1, alt1, lat2, lon2, alt2) => {
+    const horizontalDistance = calculateDistanceVincenty(lat1, lon1, lat2, lon2);
+    const verticalDistance = Math.abs(alt2 - alt1);
+    
+    // Pythagorean theorem for 3D distance
+    return Math.sqrt(horizontalDistance * horizontalDistance + verticalDistance * verticalDistance);
+};
+
+// Get multiple location samples and return the most accurate average
+const getAccurateLocation = async () => {
+    const samples = [];
+    let bestSample = null;
+    
+    for (let i = 0; i < LOCATION_SAMPLES; i++) {
+        try {
+            const location = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced, // Good balance between speed and accuracy
+                timeInterval: 500,
+                distanceInterval: 0,
+            });
+            
+            // Track the best sample
+            if (!bestSample || (location.coords.accuracy < bestSample.coords.accuracy)) {
+                bestSample = location;
+            }
+            
+            // Collect all samples with reasonable accuracy
+            if (location.coords.accuracy && location.coords.accuracy <= MAX_GPS_ACCURACY) {
+                samples.push(location);
+            }
+            
+            // Wait before next sample (except on last iteration)
+            if (i < LOCATION_SAMPLES - 1) {
+                await new Promise(resolve => setTimeout(resolve, SAMPLE_DELAY));
+            }
+        } catch (error) {
+            console.error(`Sample ${i + 1} failed:`, error);
+        }
+    }
+    
+    // If we have at least one good sample, use weighted average
+    if (samples.length > 0) {
+        // Sort by accuracy and take the best ones
+        samples.sort((a, b) => (a.coords.accuracy || Infinity) - (b.coords.accuracy || Infinity));
+        const bestSamples = samples.slice(0, Math.min(3, samples.length));
+        
+        // Calculate weighted average based on accuracy (more weight to more accurate readings)
+        let totalWeight = 0;
+        let weightedLat = 0, weightedLon = 0, weightedAlt = 0;
+        
+        bestSamples.forEach(sample => {
+            const weight = 1 / (sample.coords.accuracy || 1); // Better accuracy = higher weight
+            totalWeight += weight;
+            weightedLat += sample.coords.latitude * weight;
+            weightedLon += sample.coords.longitude * weight;
+            weightedAlt += (sample.coords.altitude || 0) * weight;
+        });
+        
+        return {
+            latitude: weightedLat / totalWeight,
+            longitude: weightedLon / totalWeight,
+            altitude: weightedAlt / totalWeight,
+            accuracy: Math.min(...bestSamples.map(s => s.coords.accuracy || Infinity)),
+            timestamp: Date.now(),
+            samplesUsed: bestSamples.length,
+        };
+    }
+    
+    // Fallback: If no samples met the threshold but we have at least one reading, use the best one
+    if (bestSample) {
+        console.warn(`Using fallback GPS reading with accuracy: ${bestSample.coords.accuracy}m`);
+        return {
+            latitude: bestSample.coords.latitude,
+            longitude: bestSample.coords.longitude,
+            altitude: bestSample.coords.altitude || 0,
+            accuracy: bestSample.coords.accuracy || 999,
+            timestamp: Date.now(),
+            samplesUsed: 1,
+        };
+    }
+    
+    // No GPS readings at all
+    throw new Error('Could not get GPS readings. Please check that location services are enabled and you have moved away from buildings or indoor areas for better signal.');
+};
+
 export default function DashboardScreen({ navigation }) {
     const [user, setUser] = React.useState(null);
     const [activeSessions, setActiveSessions] = React.useState([]);
     const [loadingSessions, setLoadingSessions] = React.useState(true);
+    const [confirmModal, setConfirmModal] = React.useState({ visible: false, session: null, distance: 0, accuracy: 0 });
 
     useEffect(() => {
         getUserInfo();
@@ -109,68 +258,141 @@ export default function DashboardScreen({ navigation }) {
             return;
         }
 
-        Alert.alert(
-            'Mark Attendance',
-            `Mark attendance for ${session.classes?.subject || 'this class'}?`,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Mark',
-                    onPress: async () => {
-                        try {
-                            // Generate a consistent student_id from email
-                            const studentId = generateUUIDFromString(userEmail);
+        try {
+            // Request location permissions
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            
+            if (status !== 'granted') {
+                Alert.alert(
+                    'Location Permission Required',
+                    'Please enable location access to mark attendance. You must be on campus to mark attendance.',
+                    [{ text: 'OK' }]
+                );
+                return;
+            }
 
-                            // Check if already marked
-                            const { data: existingRecord } = await supabase
-                                .from('attendance_records')
-                                .select('id')
-                                .eq('session_id', session.id)
-                                .eq('student_email', userEmail)
-                                .single();
+            // Show loading indicator
+            Alert.alert('Verifying Location', `Please wait while we get an accurate GPS reading...\n\nTaking up to ${LOCATION_SAMPLES} samples for best accuracy.`, [], { cancelable: false });
 
-                            if (existingRecord) {
-                                Alert.alert('Already Marked', 'You have already marked attendance for this session');
-                                return;
-                            }
+            // Get highly accurate location with multiple samples
+            const userLocation = await getAccurateLocation();
 
-                            // Insert attendance record
-                            const { error } = await supabase
-                                .from('attendance_records')
-                                .insert({
-                                    session_id: session.id,
-                                    student_id: studentId,
-                                    student_email: userEmail,
-                                    student_name: userName,
-                                    status: 'present',
-                                    marked_at: new Date().toISOString(),
-                                });
+            // Calculate 3D distance using Vincenty formula (more accurate than Haversine)
+            const distance = calculate3DDistance(
+                userLocation.latitude,
+                userLocation.longitude,
+                userLocation.altitude,
+                CAMPUS_LOCATION.latitude,
+                CAMPUS_LOCATION.longitude,
+                CAMPUS_LOCATION.elevation
+            );
 
-                            if (error) {
-                                console.error('Error marking attendance:', error);
-                                Alert.alert('Error', 'Failed to mark attendance. Please try again.');
-                                return;
-                            }
+            console.log('High-Precision Location Verification:', {
+                userLat: userLocation.latitude,
+                userLon: userLocation.longitude,
+                userAlt: userLocation.altitude,
+                gpsAccuracy: userLocation.accuracy,
+                samples: LOCATION_SAMPLES,
+                samplesUsed: userLocation.samplesUsed,
+                calculatedDistance: distance,
+                allowedDistance: ALLOWED_DISTANCE,
+                algorithm: 'Vincenty + 3D Pythagorean',
+            });
 
-                            Alert.alert('Success', 'Attendance marked successfully!');
-                        } catch (error) {
-                            console.error('Error:', error);
-                            Alert.alert('Error', 'Failed to mark attendance');
-                        }
-                    }
-                }
-            ]
-        );
+            // Check if user is within allowed range
+            if (distance > ALLOWED_DISTANCE) {
+                Alert.alert(
+                    'Location Verification Failed',
+                    `You must be within ${ALLOWED_DISTANCE}m of campus to mark attendance.\n\nYour distance: ${distance.toFixed(1)}m\nGPS accuracy: ±${userLocation.accuracy.toFixed(1)}m\n\nPlease move closer to the campus center.`,
+                    [{ text: 'OK' }]
+                );
+                return;
+            }
+
+            // Location verified, show custom confirmation modal
+            setConfirmModal({
+                visible: true,
+                session: session,
+                distance: distance.toFixed(1),
+                accuracy: userLocation.accuracy.toFixed(1)
+            });
+        } catch (error) {
+            console.error('Location error:', error);
+            Alert.alert(
+                'Location Error',
+                error.message || 'Unable to get your location. Please make sure you have clear sky view and location services are enabled.',
+                [{ text: 'OK' }]
+            );
+        }
+    };
+
+    const handleConfirmAttendance = async () => {
+        const session = confirmModal.session;
+        const distance = confirmModal.distance;
+        const accuracy = confirmModal.accuracy;
+        setConfirmModal({ visible: false, session: null, distance: 0, accuracy: 0 });
+
+        if (!session || !user) return;
+
+        const userEmail = user.email;
+        const userName = user.name || user.given_name || user.nickname || 'Student';
+
+        try {
+            // Generate a consistent student_id from email
+            const studentId = generateUUIDFromString(userEmail);
+
+            // Check if already marked
+            const { data: existingRecord } = await supabase
+                .from('attendance_records')
+                .select('id')
+                .eq('session_id', session.id)
+                .eq('student_email', userEmail)
+                .single();
+
+            if (existingRecord) {
+                Alert.alert('Already Marked', 'You have already marked attendance for this session');
+                return;
+            }
+
+            // Insert attendance record with location data
+            const { error } = await supabase
+                .from('attendance_records')
+                .insert({
+                    session_id: session.id,
+                    student_id: studentId,
+                    student_email: userEmail,
+                    student_name: userName,
+                    status: 'present',
+                    marked_at: new Date().toISOString(),
+                    distance_from_campus: parseFloat(distance),
+                    gps_accuracy: parseFloat(accuracy),
+                    location_verified: true,
+                });
+
+            if (error) {
+                console.error('Error marking attendance:', error);
+                Alert.alert('Error', 'Failed to mark attendance. Please try again.');
+                return;
+            }
+
+            Alert.alert(
+                'Success', 
+                `Attendance marked successfully!\n\nVerified distance: ${distance}m\nGPS accuracy: ±${accuracy}m`
+            );
+        } catch (error) {
+            console.error('Error:', error);
+            Alert.alert('Error', 'Failed to mark attendance');
+        }
     };
 
     const quickAccessItems = [
+        { icon: 'checklist', label: 'Attendance', color: '#F97316', onPress: () => navigation.navigate('StudentAttendance') },
+        { icon: 'menu-book', label: 'Learning', color: '#06B6D4', onPress: () => navigation.navigate('LearningHub') },
         { icon: 'restaurant', label: 'Food', color: '#EF4444' },
         { icon: 'local-library', label: 'Library', color: '#10B981' },
-        { icon: 'notifications', label: 'Notices', color: '#F59E0B', onPress: () => navigation.navigate('Notices') },
-        { icon: 'campaign', label: 'Student Voice', color: '#A855F7' },
-        { icon: 'checklist', label: 'Attendance', color: '#F97316', onPress: () => navigation.navigate('StudentAttendance') },
+        { icon: 'campaign', label: 'Student Voice', color: '#A855F7' },        
         { icon: 'storefront', label: 'Campus Marketplace', color: '#EC4899' },
-        { icon: 'menu-book', label: 'Learning', color: '#06B6D4', onPress: () => navigation.navigate('LearningHub') },
+
     ];
 
     return (
@@ -189,11 +411,11 @@ export default function DashboardScreen({ navigation }) {
                             </View>
                             <TouchableOpacity 
                                 style={styles.profilePicContainer}
-                                onPress={handleSignOut}
+                                onPress={() => navigation.navigate('ProfileDetail')}
                             >
                                 <Image
                                     source={{ 
-                                        uri: user?.user_metadata?.avatar_url || 
+                                        uri: user?.picture || 
                                         'https://lh3.googleusercontent.com/aida-public/AB6AXuC_UmOn2Ca2nFEDCfiijmx_SEi5EH7D2Y6catOJoHdc88XpwtWj5zuuQ5dwNK3a7Vj-26z0EWTwIWx9VZAGwkLntb__QkElZ01Us3OAPD9MqMORkDD0exnYBC5tsdW0CqAXJPvj5vQ2xXB5z23WE7ht34HAKNIQ2JaMajtyMPmUoBdGtODTxv_B148bL522wslFyfrgwmODlqI6XuD9T1Go9MhoAdT0_OCGvuW7aPDZeK-3c0mk5T1l3noLxaYZqL_N6G4BNePt4Xs' 
                                     }}
                                     style={styles.profilePic}
@@ -282,41 +504,62 @@ export default function DashboardScreen({ navigation }) {
                     </View>
                 </ScrollView>
 
+                {/* Confirmation Modal */}
+                <Modal
+                    animationType="fade"
+                    transparent={true}
+                    visible={confirmModal.visible}
+                    onRequestClose={() => setConfirmModal({ visible: false, session: null, distance: 0, accuracy: 0 })}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <MaterialIcons name="check-circle" size={48} color="#10B981" />
+                            </View>
+                            
+                            <Text style={styles.modalTitle}>Mark Attendance</Text>
+                            
+                            <View style={styles.modalInfo}>
+                                <View style={styles.infoRow}>
+                                    <MaterialIcons name="location-on" size={20} color="#10B981" />
+                                    <Text style={styles.infoText}>Distance: {confirmModal.distance}m from campus</Text>
+                                </View>
+                                <View style={styles.infoRow}>
+                                    <MaterialIcons name="gps-fixed" size={20} color="#10B981" />
+                                    <Text style={styles.infoText}>GPS Accuracy: ±{confirmModal.accuracy}m</Text>
+                                </View>
+                                {confirmModal.session && (
+                                    <View style={styles.infoRow}>
+                                        <MaterialIcons name="school" size={20} color="#0A84FF" />
+                                        <Text style={styles.infoText}>
+                                            {confirmModal.session.classes?.subject || confirmModal.session.classes?.name || 'Class'}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+
+                            <Text style={styles.modalMessage}>Location verified using Vincenty formula with {confirmModal.session ? (confirmModal.accuracy < 30 ? 'high' : 'moderate') : ''} precision ({LOCATION_SAMPLES} GPS samples)</Text>
+
+                            <View style={styles.modalButtons}>
+                                <TouchableOpacity
+                                    style={[styles.modalButton, styles.cancelButton]}
+                                    onPress={() => setConfirmModal({ visible: false, session: null, distance: 0, accuracy: 0 })}
+                                >
+                                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.modalButton, styles.confirmButton]}
+                                    onPress={handleConfirmAttendance}
+                                >
+                                    <Text style={styles.confirmButtonText}>Mark Attendance</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+
                 {/* Bottom Navigation */}
-                <View style={styles.bottomNav}>
-                    <TouchableOpacity style={styles.navItem} activeOpacity={0.7}>
-                        <MaterialIcons name="dashboard" size={24} color="#0A84FF" />
-                        <Text style={[styles.navLabel, { color: '#0A84FF' }]}>Dashboard</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.navItem}
-                        activeOpacity={0.7}
-                        onPress={() => navigation.navigate('LearningHub')}
-                    >
-                        <MaterialIcons name="school" size={24} color="#8E8E93" />
-                        <Text style={styles.navLabel}>Learning</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.navItem}
-                        activeOpacity={0.7}
-                        onPress={() => navigation.navigate('Notices')}
-                    >
-                        <MaterialIcons name="notifications" size={24} color="#8E8E93" />
-                        <Text style={styles.navLabel}>Notices</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.navItem}
-                        activeOpacity={0.7}
-                        onPress={() => navigation.navigate('StudentAttendance')}
-                    >
-                        <MaterialIcons name="checklist" size={24} color="#8E8E93" />
-                        <Text style={styles.navLabel}>Attendance</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem} activeOpacity={0.7}>
-                        <MaterialIcons name="person" size={24} color="#8E8E93" />
-                        <Text style={styles.navLabel}>Profile</Text>
-                    </TouchableOpacity>
-                </View>
+                <BottomNav activeTab="Dashboard" />
             </SafeAreaView>
         </View>
     );
@@ -527,34 +770,84 @@ const styles = StyleSheet.create({
         color: '#ffffff',
         marginTop: 8,
     },
-    bottomNav: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(71, 85, 105, 0.5)',
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        paddingVertical: 8,
-        paddingBottom: Platform.OS === 'ios' ? 20 : 8,
-        ...Platform.select({
-            web: {
-                backdropFilter: 'blur(12px)',
-            }
-        }),
-    },
-    navItem: {
+    modalOverlay: {
         flex: 1,
-        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
         justifyContent: 'center',
-        paddingVertical: 8,
+        alignItems: 'center',
+        padding: 20,
     },
-    navLabel: {
-        fontSize: 10,
-        fontWeight: '500',
+    modalContent: {
+        backgroundColor: 'rgba(28, 28, 46, 0.98)',
+        borderRadius: 20,
+        padding: 24,
+        width: '100%',
+        maxWidth: 400,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        alignItems: 'center',
+    },
+    modalHeader: {
+        marginBottom: 16,
+    },
+    modalTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#ffffff',
+        marginBottom: 16,
+        textAlign: 'center',
+    },
+    modalInfo: {
+        width: '100%',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+        gap: 12,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    infoText: {
+        fontSize: 14,
+        color: '#ffffff',
+        flex: 1,
+    },
+    modalMessage: {
+        fontSize: 15,
         color: '#8E8E93',
-        marginTop: 4,
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        gap: 12,
+        width: '100%',
+    },
+    modalButton: {
+        flex: 1,
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    cancelButton: {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    cancelButtonText: {
+        color: '#8E8E93',
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    confirmButton: {
+        backgroundColor: '#0A84FF',
+    },
+    confirmButtonText: {
+        color: '#ffffff',
+        fontSize: 15,
+        fontWeight: '600',
     },
 });

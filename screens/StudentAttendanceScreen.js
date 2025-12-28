@@ -4,6 +4,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { auth0 } from '../lib/auth0';
+import BottomNav from '../components/BottomNav';
+
+// Helper function to generate a consistent UUID from a string
+const generateUUIDFromString = (str) => {
+    // Simple hash function to generate consistent UUID
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash = hash & hash;
+    }
+    
+    // Convert to UUID format
+    const hex = Math.abs(hash).toString(16).padStart(8, '0');
+    return `${hex.substr(0, 8)}-${hex.substr(0, 4)}-4${hex.substr(0, 3)}-${hex.substr(0, 4)}-${hex.substr(0, 12)}`.padEnd(36, '0');
+};
 
 export default function StudentAttendanceScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
@@ -25,25 +40,18 @@ export default function StudentAttendanceScreen({ navigation }) {
         try {
             setLoading(true);
             
-            let userId = null;
-            try {
-                const user = await auth0.getUser();
-                console.log('User data:', user);
-                userId = user?.sub || user?.id;
-            } catch (authError) {
-                console.log('Auth error:', authError);
-                // Use mock data if auth fails
-                useMockData();
-                return;
-            }
+            // Get user info from Auth0
+            const userInfo = await auth0.getUser();
+            const userData = userInfo?.data?.user || userInfo;
+            const userEmail = userData?.email;
             
-            if (!userId) {
-                console.log('No user ID found, using mock data');
-                useMockData();
+            if (!userEmail) {
+                Alert.alert('Error', 'Unable to get your email. Please sign in again.');
+                setLoading(false);
                 return;
             }
 
-            // Fetch attendance records with session and class details
+            // Fetch attendance records using student_email
             const { data, error } = await supabase
                 .from('attendance_records')
                 .select(`
@@ -56,114 +64,26 @@ export default function StudentAttendanceScreen({ navigation }) {
                         )
                     )
                 `)
-                .eq('student_id', userId)
+                .eq('student_email', userEmail)
                 .order('marked_at', { ascending: false });
 
             if (error) {
                 console.error('Error fetching attendance:', error);
-                // Using mock data for demo if database not set up
-                useMockData();
+                Alert.alert('Error', 'Failed to load attendance records');
+                setAttendanceRecords([]);
+                calculateStats([]);
             } else {
                 setAttendanceRecords(data || []);
                 calculateStats(data || []);
             }
         } catch (error) {
             console.error('Error:', error);
-            useMockData();
+            Alert.alert('Error', 'Failed to load attendance records');
+            setAttendanceRecords([]);
+            calculateStats([]);
         } finally {
             setLoading(false);
         }
-    };
-
-    const useMockData = () => {
-        const mockData = [
-            {
-                id: '1',
-                status: 'present',
-                marked_at: '2025-12-27T10:30:00',
-                attendance_sessions: {
-                    started_at: '2025-12-27T10:00:00',
-                    classes: {
-                        name: 'Physics 101',
-                        subject: 'Physics'
-                    }
-                }
-            },
-            {
-                id: '2',
-                status: 'present',
-                marked_at: '2025-12-26T14:15:00',
-                attendance_sessions: {
-                    started_at: '2025-12-26T14:00:00',
-                    classes: {
-                        name: 'Mathematics 201',
-                        subject: 'Mathematics'
-                    }
-                }
-            },
-            {
-                id: '3',
-                status: 'late',
-                marked_at: '2025-12-26T10:20:00',
-                attendance_sessions: {
-                    started_at: '2025-12-26T10:00:00',
-                    classes: {
-                        name: 'Physics 101',
-                        subject: 'Physics'
-                    }
-                }
-            },
-            {
-                id: '4',
-                status: 'present',
-                marked_at: '2025-12-25T09:05:00',
-                attendance_sessions: {
-                    started_at: '2025-12-25T09:00:00',
-                    classes: {
-                        name: 'Computer Science 301',
-                        subject: 'Computer Science'
-                    }
-                }
-            },
-            {
-                id: '5',
-                status: 'absent',
-                marked_at: '2025-12-25T14:00:00',
-                attendance_sessions: {
-                    started_at: '2025-12-25T14:00:00',
-                    classes: {
-                        name: 'Chemistry 102',
-                        subject: 'Chemistry'
-                    }
-                }
-            },
-            {
-                id: '6',
-                status: 'present',
-                marked_at: '2025-12-24T11:10:00',
-                attendance_sessions: {
-                    started_at: '2025-12-24T11:00:00',
-                    classes: {
-                        name: 'Physics 101',
-                        subject: 'Physics'
-                    }
-                }
-            },
-            {
-                id: '7',
-                status: 'present',
-                marked_at: '2025-12-23T10:05:00',
-                attendance_sessions: {
-                    started_at: '2025-12-23T10:00:00',
-                    classes: {
-                        name: 'Mathematics 201',
-                        subject: 'Mathematics'
-                    }
-                }
-            },
-        ];
-        setAttendanceRecords(mockData);
-        calculateStats(mockData);
     };
 
     const calculateStats = (records) => {
@@ -331,60 +251,57 @@ export default function StudentAttendanceScreen({ navigation }) {
     return (
         <View style={styles.container}>
             <SafeAreaView style={styles.safeArea} edges={['top']}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity 
-                        style={styles.backButton}
-                        onPress={() => navigation.goBack()}
-                        activeOpacity={0.7}
-                    >
-                        <MaterialIcons name="arrow-back" size={24} color="#ffffff" />
-                    </TouchableOpacity>
-                    <View style={styles.headerTitleContainer}>
-                        <Text style={styles.headerTitle}>My Attendance</Text>
-                        <Text style={styles.headerSubtitle}>{stats.total} Sessions Recorded</Text>
-                    </View>
-                    <TouchableOpacity 
-                        style={styles.refreshButton}
-                        onPress={fetchAttendanceRecords}
-                        activeOpacity={0.7}
-                    >
-                        <MaterialIcons name="refresh" size={24} color="#ffffff" />
-                    </TouchableOpacity>
-                </View>
-
                 {/* Main Content */}
                 <ScrollView 
                     style={styles.scrollView} 
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Stats Card */}
-                    {renderStatsCard()}
-
-                    {/* Filter Buttons */}
-                    {renderFilterButtons()}
-
-                    {/* Attendance Records */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Attendance History</Text>
-                        
-                        {getFilteredRecords().length === 0 ? (
-                            <View style={styles.emptyState}>
-                                <MaterialIcons name="event-busy" size={48} color="#8E8E93" />
-                                <Text style={styles.emptyStateText}>No attendance records found</Text>
-                                <Text style={styles.emptyStateSubtext}>
-                                    {filter === 'all' 
-                                        ? 'Your attendance records will appear here'
-                                        : `No ${filter} records found`
-                                    }
-                                </Text>
+                    <View style={styles.contentColumn}>
+                        {/* Header */}
+                        <View style={styles.header}>
+                            <View>
+                                <Text style={styles.title}>My Attendance</Text>
+                                <Text style={styles.subtitle}>{stats.total} Sessions Recorded</Text>
                             </View>
-                        ) : (
-                            getFilteredRecords().map(record => renderAttendanceRecord(record))
-                        )}
+                            <TouchableOpacity 
+                                style={styles.refreshButton}
+                                onPress={fetchAttendanceRecords}
+                                activeOpacity={0.7}
+                            >
+                                <MaterialIcons name="refresh" size={24} color="#8E8E93" />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Stats Card */}
+                        {renderStatsCard()}
+
+                        {/* Filter Buttons */}
+                        {renderFilterButtons()}
+
+                        {/* Attendance Records */}
+                        <View style={[styles.section, { marginBottom: 100 }]}>
+                            <Text style={styles.sectionTitle}>Attendance History</Text>
+                            
+                            {getFilteredRecords().length === 0 ? (
+                                <View style={styles.emptyState}>
+                                    <MaterialIcons name="event-busy" size={48} color="#8E8E93" />
+                                    <Text style={styles.emptyStateText}>No attendance records found</Text>
+                                    <Text style={styles.emptyStateSubtext}>
+                                        {filter === 'all' 
+                                            ? 'Your attendance records will appear here'
+                                            : `No ${filter} records found`
+                                        }
+                                    </Text>
+                                </View>
+                            ) : (
+                                getFilteredRecords().map(record => renderAttendanceRecord(record))
+                            )}
+                        </View>
                     </View>
                 </ScrollView>
+                
+                <BottomNav activeTab="Attendance" />
             </SafeAreaView>
         </View>
     );
@@ -393,7 +310,7 @@ export default function StudentAttendanceScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000000',
+        backgroundColor: 'transparent',
     },
     safeArea: {
         flex: 1,
@@ -409,74 +326,71 @@ const styles = StyleSheet.create({
         marginTop: 16,
         fontSize: 16,
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        backgroundColor: '#1C1C1E',
-        borderBottomWidth: 1,
-        borderBottomColor: '#2C2C2E',
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#2C2C2E',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    headerTitleContainer: {
-        flex: 1,
-        marginLeft: 16,
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#ffffff',
-    },
-    headerSubtitle: {
-        fontSize: 14,
-        color: '#8E8E93',
-        marginTop: 2,
-    },
-    refreshButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#2C2C2E',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
     scrollView: {
         flex: 1,
     },
     scrollContent: {
-        padding: 20,
-        paddingBottom: 40,
+        paddingBottom: 100,
+    },
+    contentColumn: {
+        width: '100%',
+        maxWidth: 1400,
+        alignSelf: 'center',
+        paddingHorizontal: 20,
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 32,
+    },
+    title: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: '#ffffff',
+        marginBottom: 4,
+    },
+    subtitle: {
+        fontSize: 16,
+        color: '#8E8E93',
+    },
+    refreshButton: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(28, 28, 46, 0.7)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     statsCard: {
-        backgroundColor: '#1C1C1E',
-        borderRadius: 20,
+        backgroundColor: 'rgba(28, 28, 46, 0.7)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        borderRadius: 12,
         padding: 24,
-        marginBottom: 20,
+        marginBottom: 24,
         ...Platform.select({
             ios: {
                 shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
                 shadowRadius: 8,
             },
             android: {
-                elevation: 4,
+                elevation: 2,
             },
+            web: {
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            }
         }),
     },
     mainStatContainer: {
         alignItems: 'center',
         paddingBottom: 24,
         borderBottomWidth: 1,
-        borderBottomColor: '#2C2C2E',
+        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
         marginBottom: 24,
     },
     percentageText: {
@@ -525,10 +439,10 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         paddingHorizontal: 12,
         borderRadius: 12,
-        backgroundColor: '#1C1C1E',
+        backgroundColor: 'rgba(28, 28, 46, 0.7)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#2C2C2E',
     },
     filterButtonActive: {
         backgroundColor: '#0A84FF',
@@ -543,21 +457,35 @@ const styles = StyleSheet.create({
         color: '#ffffff',
     },
     section: {
-        marginBottom: 24,
+        marginBottom: 32,
     },
     sectionTitle: {
         fontSize: 18,
-        fontWeight: '700',
+        fontWeight: '600',
         color: '#ffffff',
-        marginBottom: 16,
+        marginBottom: 12,
     },
     recordCard: {
-        backgroundColor: '#1C1C1E',
-        borderRadius: 16,
+        backgroundColor: 'rgba(28, 28, 46, 0.7)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        borderRadius: 12,
         padding: 16,
         marginBottom: 12,
-        borderWidth: 1,
-        borderColor: '#2C2C2E',
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 2,
+            },
+            web: {
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            }
+        }),
     },
     recordHeader: {
         flexDirection: 'row',
@@ -591,8 +519,13 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     emptyState: {
+        backgroundColor: 'rgba(28, 28, 46, 0.7)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        borderRadius: 12,
         alignItems: 'center',
         paddingVertical: 48,
+        paddingHorizontal: 24,
     },
     emptyStateText: {
         fontSize: 18,

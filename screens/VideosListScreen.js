@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Image, Modal, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, Modal, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { getVideosByTopic, createVideo } from '../lib/learningHub';
+import BottomNav from '../components/BottomNav';
+import Background from '../components/Background';
 
 export default function VideosListScreen({ navigation, route }) {
     const { subject, topic } = route.params;
@@ -61,117 +63,81 @@ export default function VideosListScreen({ navigation, route }) {
 
     return (
         <View style={styles.container}>
-            <LinearGradient
-                colors={['#111827', '#1F2937']}
-                style={styles.gradient}
-            />
-            <View style={styles.radialGlow} />
+            <Background />
 
-            <SafeAreaView style={styles.safeArea}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        style={styles.backButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <MaterialIcons name="arrow-back-ios" size={20} color="#F9FAFB" />
-                    </TouchableOpacity>
-                    <Text style={styles.title}>Videos</Text>
-                    <View style={styles.placeholder} />
-                </View>
-
-                {/* Add Video Button */}
-                <View style={styles.actionContainer}>
-                    <TouchableOpacity 
-                        style={styles.addButton} 
-                        onPress={() => setModalVisible(true)}
-                        activeOpacity={0.8}
-                    >
-                        <MaterialIcons name="add-circle" size={20} color="#fff" />
-                        <Text style={styles.addButtonText}>Add New Video</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Videos List */}
+            <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <ScrollView
                     style={styles.scrollView}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
                 >
-                    {loading ? (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="large" color="#4F46E5" />
-                            <Text style={styles.loadingText}>Loading videos...</Text>
-                        </View>
-                    ) : videos.length === 0 ? (
-                        <View style={styles.emptyContainer}>
-                            <MaterialIcons name="play-circle-outline" size={64} color="rgba(255,255,255,0.2)" />
-                            <Text style={styles.emptyText}>No videos yet</Text>
-                            <Text style={styles.emptySubtext}>Add your first video to start learning</Text>
-                        </View>
-                    ) : (
-                        videos.map((video) => (
-                            <TouchableOpacity
-                                key={video.id}
-                                style={styles.videoCard}
-                                onPress={() => navigation.navigate('LectureVideo', { video, topic, subject })}
-                                activeOpacity={0.8}
+                    <View style={styles.contentColumn}>
+                        {/* Header */}
+                        <View style={styles.header}>
+                            <View>
+                                <Text style={styles.title}>{topic.name}</Text>
+                                <Text style={styles.subtitle}>{subject.name}</Text>
+                            </View>
+                            <TouchableOpacity 
+                                style={styles.addButton} 
+                                onPress={() => setModalVisible(true)}
+                                activeOpacity={0.7}
                             >
-                                <View style={styles.thumbnailContainer}>
-                                    <Image
-                                        source={{ uri: video.thumbnail }}
-                                        style={styles.thumbnail}
-                                    />
-                                    <View style={styles.playOverlay}>
-                                        <MaterialIcons name="play-circle-outline" size={40} color="rgba(255,255,255,0.8)" />
-                                    </View>
-                                    <View style={styles.durationBadge}>
-                                        <Text style={styles.durationText}>{video.duration}</Text>
-                                    </View>
-                                </View>
-                                <View style={styles.videoInfo}>
-                                    <Text style={styles.videoTitle} numberOfLines={2}>
-                                        {video.title}
-                                    </Text>
-                                    <View style={styles.upvotesContainer}>
-                                        <MaterialIcons name="thumb-up-off-alt" size={16} color="#4F46E5" />
-                                        <Text style={styles.upvotesText}>{video.upvotes || 0} upvotes</Text>
-                                    </View>
-                                </View>
+                                <MaterialIcons name="add" size={24} color="#8E8E93" />
                             </TouchableOpacity>
-                        ))
-                    )}
+                        </View>
+
+                        {/* Videos List */}
+                        <View style={[styles.section, { marginBottom: 100 }]}        >
+                            {loading ? (
+                                <View style={styles.loadingCard}>
+                                    <ActivityIndicator size="large" color="#0A84FF" />
+                                    <Text style={styles.loadingText}>Loading videos...</Text>
+                                </View>
+                            ) : videos.length === 0 ? (
+                                <View style={styles.emptyCard}>
+                                    <MaterialIcons name="play-circle-outline" size={48} color="#8E8E93" />
+                                    <Text style={styles.emptyText}>No videos yet</Text>
+                                    <Text style={styles.emptySubtext}>Add your first video to start learning</Text>
+                                </View>
+                            ) : (
+                                videos.map((video) => (
+                                    <TouchableOpacity
+                                        key={video.id}
+                                        style={styles.videoCard}
+                                        onPress={() => navigation.navigate('LectureVideo', { video, topic, subject })}
+                                        activeOpacity={0.8}
+                                    >
+                                        <View style={styles.thumbnailContainer}>
+                                            <Image
+                                                source={{ uri: video.thumbnail }}
+                                                style={styles.thumbnail}
+                                            />
+                                            <View style={styles.playOverlay}>
+                                                <MaterialIcons name="play-circle-outline" size={40} color="rgba(255,255,255,0.8)" />
+                                            </View>
+                                            <View style={styles.durationBadge}>
+                                                <Text style={styles.durationText}>{video.duration}</Text>
+                                            </View>
+                                        </View>
+                                        <View style={styles.videoInfo}>
+                                            <Text style={styles.videoTitle} numberOfLines={2}>
+                                                {video.title}
+                                            </Text>
+                                            <View style={styles.upvotesContainer}>
+                                                <MaterialIcons name="thumb-up-off-alt" size={16} color="#0A84FF" />
+                                                <Text style={styles.upvotesText}>{video.upvotes || 0} upvotes</Text>
+                                            </View>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))
+                            )}
+                        </View>
+                    </View>
                 </ScrollView>
 
                 {/* Bottom Navigation */}
-                <View style={styles.bottomNav}>
-                    <TouchableOpacity
-                        style={styles.navItem}
-                        onPress={() => navigation.navigate('Dashboard')}
-                    >
-                        <MaterialIcons name="dashboard" size={24} color="#9CA3AF" />
-                        <Text style={styles.navLabel}>Dashboard</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem}>
-                        <MaterialIcons name="school" size={24} color="#4F46E5" />
-                        <Text style={[styles.navLabel, { color: '#4F46E5' }]}>Learning</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.navItem}
-                        onPress={() => navigation.navigate('Notices')}
-                    >
-                        <MaterialIcons name="notifications" size={24} color="#9CA3AF" />
-                        <Text style={styles.navLabel}>Notices</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem}>
-                        <MaterialIcons name="event-available" size={24} color="#9CA3AF" />
-                        <Text style={styles.navLabel}>Attendance</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem}>
-                        <MaterialIcons name="person" size={24} color="#9CA3AF" />
-                        <Text style={styles.navLabel}>Profile</Text>
-                    </TouchableOpacity>
-                </View>
+                <BottomNav activeTab="Learning" />
 
                 {/* Add Video Modal */}
                 <Modal
@@ -241,82 +207,75 @@ export default function VideosListScreen({ navigation, route }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#111827',
-    },
-    gradient: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-    },
-    radialGlow: {
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        width: '80%',
-        height: '50%',
-        backgroundColor: 'rgba(79, 70, 229, 0.15)',
-        borderRadius: 9999,
-        transform: [{ scaleX: 2 }],
+        backgroundColor: 'transparent',
     },
     safeArea: {
         flex: 1,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingTop: 16,
-        paddingBottom: 8,
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 20,
-    },
-    title: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#F9FAFB',
-        flex: 1,
-        textAlign: 'center',
-    },
-    placeholder: {
-        width: 40,
-    },
-    actionContainer: {
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    addButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#4F46E5',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 10,
-        gap: 8,
-    },
-    addButtonText: {
-        color: '#fff',
-        fontSize: 15,
-        fontWeight: '600',
     },
     scrollView: {
         flex: 1,
     },
     scrollContent: {
-        padding: 16,
         paddingBottom: 100,
+    },
+    contentColumn: {
+        width: '100%',
+        maxWidth: 1400,
+        alignSelf: 'center',
+        paddingHorizontal: 20,
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 32,
+    },
+    title: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: '#ffffff',
+        marginBottom: 4,
+    },
+    subtitle: {
+        fontSize: 16,
+        color: '#8E8E93',
+    },
+    addButton: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(28, 28, 46, 0.7)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    section: {
+        marginBottom: 32,
     },
     videoCard: {
         flexDirection: 'row',
         marginBottom: 16,
         gap: 12,
+        backgroundColor: 'rgba(28, 28, 46, 0.7)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        padding: 12,
+        borderRadius: 12,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 2,
+            },
+            web: {
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            }
+        }),
     },
     thumbnailContainer: {
         width: 128,
@@ -361,7 +320,7 @@ const styles = StyleSheet.create({
     videoTitle: {
         fontSize: 15,
         fontWeight: '600',
-        color: '#F9FAFB',
+        color: '#ffffff',
         lineHeight: 20,
     },
     upvotesContainer: {
@@ -371,75 +330,58 @@ const styles = StyleSheet.create({
     },
     upvotesText: {
         fontSize: 13,
-        color: '#9CA3AF',
+        color: '#8E8E93',
     },
-    loadingContainer: {
-        flex: 1,
+    loadingCard: {
+        backgroundColor: 'rgba(28, 28, 46, 0.7)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 32,
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingTop: 100,
+        gap: 12,
     },
     loadingText: {
-        color: '#9CA3AF',
+        color: '#8E8E93',
         fontSize: 16,
-        marginTop: 16,
     },
-    emptyContainer: {
-        flex: 1,
+    emptyCard: {
+        backgroundColor: 'rgba(28, 28, 46, 0.7)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 32,
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingTop: 100,
     },
     emptyText: {
-        color: '#F9FAFB',
-        fontSize: 20,
+        color: '#ffffff',
+        fontSize: 18,
         fontWeight: '600',
-        marginTop: 16,
+        marginTop: 12,
     },
     emptySubtext: {
-        color: '#9CA3AF',
+        color: '#8E8E93',
         fontSize: 14,
         marginTop: 8,
         textAlign: 'center',
     },
-    bottomNav: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        flexDirection: 'row',
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.1)',
-        paddingBottom: 20,
-        paddingTop: 8,
-    },
-    navItem: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 8,
-    },
-    navLabel: {
-        fontSize: 11,
-        color: '#9CA3AF',
-        marginTop: 4,
-    },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.7)',
+        backgroundColor: 'rgba(0,0,0,0.8)',
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
     },
     modalContent: {
-        backgroundColor: '#1F2937',
+        backgroundColor: 'rgba(28, 28, 46, 0.95)',
         borderRadius: 16,
         padding: 24,
         width: '100%',
         maxWidth: 400,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     modalHeader: {
         flexDirection: 'row',
@@ -450,15 +392,15 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#F9FAFB',
+        color: '#ffffff',
     },
     input: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-        borderRadius: 10,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: 12,
         padding: 14,
-        color: '#F9FAFB',
+        color: '#ffffff',
         fontSize: 15,
         marginBottom: 16,
     },
@@ -470,24 +412,24 @@ const styles = StyleSheet.create({
     modalButton: {
         flex: 1,
         paddingVertical: 14,
-        borderRadius: 10,
+        borderRadius: 12,
         alignItems: 'center',
     },
     cancelButton: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     cancelButtonText: {
-        color: '#9CA3AF',
+        color: '#8E8E93',
         fontSize: 15,
         fontWeight: '600',
     },
     addModalButton: {
-        backgroundColor: '#4F46E5',
+        backgroundColor: '#0A84FF',
     },
     addModalButtonText: {
-        color: '#fff',
+        color: '#ffffff',
         fontSize: 15,
         fontWeight: '600',
     },

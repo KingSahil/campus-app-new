@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { auth0 } from '../lib/auth0';
+import { supabase } from '../lib/supabase';
 
 const GoogleIcon = () => (
     <Svg width="24" height="24" viewBox="0 0 24 24">
@@ -26,10 +27,58 @@ export default function SignInScreen({ navigation }) {
             const { data: { session } } = await auth0.getSession();
             console.log('Session check:', session);
             if (session) {
-                navigation.replace('Profile');
+                await checkUserOnboardingStatus();
             }
         } catch (error) {
             console.log('No active session:', error);
+        }
+    };
+
+    const checkUserOnboardingStatus = async () => {
+        try {
+            const userInfo = await auth0.getUser();
+            const userData = userInfo?.data?.user || userInfo;
+            const userId = userData?.sub || userData?.email;
+
+            if (!userId) {
+                navigation.replace('Profile');
+                return;
+            }
+
+            // Check user profile in database
+            const { data: profile, error } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .eq('user_id', userId)
+                .single();
+
+            if (error && error.code !== 'PGRST116') {
+                console.error('Error fetching profile:', error);
+                navigation.replace('Profile');
+                return;
+            }
+
+            // Route based on onboarding status
+            if (!profile) {
+                // No profile exists - go to Profile entry
+                navigation.replace('Profile');
+            } else if (!profile.profile_completed) {
+                // Profile incomplete - go to Profile entry
+                navigation.replace('Profile');
+            } else if (!profile.onboarding_completed) {
+                // Profile complete but onboarding not done - go to GetStarted
+                navigation.replace('GetStarted');
+            } else {
+                // Everything complete - route based on role
+                if (profile.role === 'instructor') {
+                    navigation.replace('AdminDashboard');
+                } else {
+                    navigation.replace('Dashboard');
+                }
+            }
+        } catch (error) {
+            console.error('Error checking onboarding status:', error);
+            navigation.replace('Profile');
         }
     };
 
@@ -44,8 +93,8 @@ export default function SignInScreen({ navigation }) {
             if (error) throw error;
 
             if (user) {
-                console.log('Redirecting to Profile...');
-                navigation.replace('Profile');
+                console.log('User signed in, checking onboarding status...');
+                await checkUserOnboardingStatus();
             }
         } catch (error) {
             console.error('Sign in error:', error);

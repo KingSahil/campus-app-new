@@ -1,14 +1,39 @@
 import React from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
+import { auth0 } from '../lib/auth0';
 
 export default function GetStartedScreen({ navigation }) {
-    const handleJoin = () => {
+    const markOnboardingComplete = async (role = 'student') => {
+        try {
+            const userInfo = await auth0.getUser();
+            const userData = userInfo?.data?.user || userInfo;
+            const userId = userData?.sub;
+
+            if (userId) {
+                await supabase
+                    .from('user_profiles')
+                    .update({
+                        onboarding_completed: true,
+                        role: role,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('user_id', userId);
+            }
+        } catch (error) {
+            console.error('Error marking onboarding complete:', error);
+        }
+    };
+
+    const handleJoin = async () => {
+        await markOnboardingComplete('student');
         navigation.navigate('Dashboard');
     };
 
-    const handleCreate = () => {
+    const handleCreate = async () => {
+        await markOnboardingComplete('instructor');
         navigation.navigate('AdminDashboard');
     };
 

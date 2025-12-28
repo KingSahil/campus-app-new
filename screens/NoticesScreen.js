@@ -4,11 +4,12 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import BottomNav from '../components/BottomNav';
 
 const NoticesScreen = ({ navigation }) => {
   const urgentNotices = [
@@ -107,7 +108,7 @@ const NoticesScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor="#101922" />
       
       {/* Header */}
@@ -137,6 +138,9 @@ const NoticesScreen = ({ navigation }) => {
         {/* Bottom padding for navigation */}
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      {/* Bottom Navigation */}
+      <BottomNav activeTab="Notices" />
     </SafeAreaView>
   );
 };

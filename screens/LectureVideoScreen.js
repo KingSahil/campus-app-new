@@ -1,8 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, TextInput, ActivityIndicator, Alert, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import YoutubePlayer from 'react-native-youtube-iframe';
+import { supabase } from '../lib/supabase';
+import { auth0 } from '../lib/auth0';
+import BottomNav from '../components/BottomNav';
 
 const { width } = Dimensions.get('window');
 
@@ -49,6 +52,20 @@ export default function LectureVideoScreen({ navigation, route }) {
     const videoRef = useRef(null);
     const [currentTime, setCurrentTime] = useState(0);
     
+    // Upvote states
+    const [upvoteCount, setUpvoteCount] = useState(0);
+    const [hasUpvoted, setHasUpvoted] = useState(false);
+    const [loadingUpvote, setLoadingUpvote] = useState(false);
+    const [user, setUser] = useState(null);
+    
+    // Discussion states
+    const [discussions, setDiscussions] = useState([]);
+    const [loadingDiscussions, setLoadingDiscussions] = useState(false);
+    const [newMessage, setNewMessage] = useState('');
+    const [replyTo, setReplyTo] = useState(null);
+    const [replyText, setReplyText] = useState('');
+    const [expandedThreads, setExpandedThreads] = useState({});
+    
     // AI Summarizer states
     const [userQuestion, setUserQuestion] = useState('');
     const [summary, setSummary] = useState('')
@@ -63,6 +80,102 @@ export default function LectureVideoScreen({ navigation, route }) {
     // Check if the video is a YouTube video
     const youtubeVideoId = getYouTubeVideoId(video.url);
     const isYouTubeVideo = youtubeVideoId !== null;
+
+    useEffect(() => {
+        getUserInfo();
+        fetchUpvotes();
+        fetchDiscussions();
+    }, []);
+
+    const getUserInfo = async () => {
+        try {
+            const userInfo = await auth0.getUser();
+            const userData = userInfo?.data?.user || userInfo;
+            setUser(userData);
+        } catch (error) {
+            console.log('Error getting user:', error);
+        }
+    };
+
+    const fetchUpvotes = async () => {
+        try {
+            // Generate consistent video ID from URL
+            const videoId = video.url;
+
+            // Get total upvote count
+            const { data, error, count } = await supabase
+                .from('video_upvotes')
+                .select('*', { count: 'exact' })
+                .eq('video_id', videoId);
+
+            if (error) {
+                console.error('Error fetching upvotes:', error);
+                return;
+            }
+
+            setUpvoteCount(count || 0);
+
+            // Check if current user has upvoted
+            const userInfo = await auth0.getUser();
+            const userData = userInfo?.data?.user || userInfo;
+            const userId = userData?.sub;
+
+            if (userId) {
+                const userUpvote = data?.find(upvote => upvote.user_id === userId);
+                setHasUpvoted(!!userUpvote);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    };
+
+    const handleUpvote = async () => {
+        if (!user?.sub) {
+            Alert.alert('Sign In Required', 'Please sign in to upvote videos');
+            return;
+        }
+
+        setLoadingUpvote(true);
+        try {
+            const videoId = video.url;
+            const userId = user.sub;
+            const userEmail = user.email;
+
+            if (hasUpvoted) {
+                // Remove upvote
+                const { error } = await supabase
+                    .from('video_upvotes')
+                    .delete()
+                    .eq('video_id', videoId)
+                    .eq('user_id', userId);
+
+                if (error) throw error;
+
+                setHasUpvoted(false);
+                setUpvoteCount(prev => prev - 1);
+            } else {
+                // Add upvote
+                const { error } = await supabase
+                    .from('video_upvotes')
+                    .insert({
+                        video_id: videoId,
+                        video_title: video.title,
+                        user_id: userId,
+                        user_email: userEmail,
+                    });
+
+                if (error) throw error;
+
+                setHasUpvoted(true);
+                setUpvoteCount(prev => prev + 1);
+            }
+        } catch (error) {
+            console.error('Error toggling upvote:', error);
+            Alert.alert('Error', 'Failed to update upvote. Please try again.');
+        } finally {
+            setLoadingUpvote(false);
+        }
+    };
 
     const generateSummary = async () => {
         if (!userQuestion.trim()) {
@@ -171,31 +284,296 @@ export default function LectureVideoScreen({ navigation, route }) {
         setShowResults(true);
     };
 
+    const fetchDiscussions = async () => {
+        setLoadingDiscussions(true);
+        try {
+            const { data, error } = await supabase
+                .from('video_discussions')
+                .select('*')
+                .eq('video_id', video.url)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setDiscussions(data || []);
+        } catch (error) {
+            console.error('Error fetching discussions:', error);
+        } finally {
+            setLoadingDiscussions(false);
+        }
+    };
+
+    const postMessage = async () => {
+        if (!newMessage.trim() || !user) return;
+
+        try {
+            const { data, error } = await supabase
+                .from('video_discussions')
+                .insert({
+                    video_id: video.url,
+                    video_title: video.title,
+                    user_id: user.sub,
+                    user_name: user.name || user.email?.split('@')[0] || 'Student',
+                    user_email: user.email,
+                    message: newMessage.trim(),
+                    parent_id: null,
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            setDiscussions([data, ...discussions]);
+            setNewMessage('');
+        } catch (error) {
+            console.error('Error posting message:', error);
+            Alert.alert('Error', 'Failed to post message');
+        }
+    };
+
+    const postReply = async (parentId) => {
+        if (!replyText.trim() || !user) return;
+
+        try {
+            const { data, error } = await supabase
+                .from('video_discussions')
+                .insert({
+                    video_id: video.url,
+                    video_title: video.title,
+                    user_id: user.sub,
+                    user_name: user.name || user.email?.split('@')[0] || 'Student',
+                    user_email: user.email,
+                    message: replyText.trim(),
+                    parent_id: parentId,
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            setDiscussions([data, ...discussions]);
+            setReplyText('');
+            setReplyTo(null);
+        } catch (error) {
+            console.error('Error posting reply:', error);
+            Alert.alert('Error', 'Failed to post reply');
+        }
+    };
+
+    const toggleThread = (messageId) => {
+        setExpandedThreads(prev => ({
+            ...prev,
+            [messageId]: !prev[messageId]
+        }));
+    };
+
+    const getReplies = (parentId) => {
+        return discussions.filter(d => d.parent_id === parentId);
+    };
+
+    const getMainMessages = () => {
+        return discussions.filter(d => !d.parent_id);
+    };
+
+    const formatTimeAgo = (dateString) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const seconds = Math.floor((now - date) / 1000);
+
+        if (seconds < 60) return 'just now';
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+        if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+        return date.toLocaleDateString();
+    };
+
     const renderTabContent = () => {
         switch (activeTab) {
             case 'upvotes':
                 return (
                     <View style={styles.tabContent}>
                         <View style={styles.upvoteSection}>
-                            <TouchableOpacity style={styles.upvoteButton}>
-                                <MaterialIcons name="thumb-up" size={32} color="#3B82F6" />
+                            <TouchableOpacity 
+                                style={[
+                                    styles.upvoteButton,
+                                    hasUpvoted && styles.upvoteButtonActive
+                                ]}
+                                onPress={handleUpvote}
+                                disabled={loadingUpvote}
+                            >
+                                {loadingUpvote ? (
+                                    <ActivityIndicator color={hasUpvoted ? "#fff" : "#3B82F6"} />
+                                ) : (
+                                    <MaterialIcons 
+                                        name={hasUpvoted ? "thumb-up" : "thumb-up-off-alt"} 
+                                        size={32} 
+                                        color={hasUpvoted ? "#fff" : "#3B82F6"} 
+                                    />
+                                )}
                             </TouchableOpacity>
-                            <Text style={styles.upvoteCount}>1.2K Upvotes</Text>
-                            <Text style={styles.upvoteSubtext}>Tap to upvote this video</Text>
+                            <Text style={styles.upvoteCount}>
+                                {upvoteCount.toLocaleString()} {upvoteCount === 1 ? 'Upvote' : 'Upvotes'}
+                            </Text>
+                            <Text style={styles.upvoteSubtext}>
+                                {hasUpvoted ? 'You upvoted this video' : 'Tap to upvote this video'}
+                            </Text>
                         </View>
                     </View>
                 );
             case 'discussion':
                 return (
                     <View style={styles.tabContent}>
-                        <Text style={styles.comingSoonText}>Discussion Forum</Text>
-                        <Text style={styles.comingSoonSubtext}>
-                            Join the conversation with your classmates
-                        </Text>
-                        <View style={styles.discussionPreview}>
-                            <MaterialIcons name="forum" size={48} color="#6B7280" />
-                            <Text style={styles.previewText}>No discussions yet. Be the first!</Text>
+                        {/* New Message Input */}
+                        <View style={styles.newMessageContainer}>
+                            <TextInput
+                                style={styles.messageInput}
+                                placeholder="Ask a question or start a discussion..."
+                                placeholderTextColor="#6B7280"
+                                value={newMessage}
+                                onChangeText={setNewMessage}
+                                multiline
+                            />
+                            <TouchableOpacity
+                                style={[styles.sendButton, !newMessage.trim() && styles.sendButtonDisabled]}
+                                onPress={postMessage}
+                                disabled={!newMessage.trim()}
+                            >
+                                <MaterialIcons name="send" size={20} color="#fff" />
+                            </TouchableOpacity>
                         </View>
+
+                        {/* Messages List */}
+                        {loadingDiscussions ? (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator color="#3B82F6" />
+                                <Text style={styles.loadingText}>Loading discussions...</Text>
+                            </View>
+                        ) : getMainMessages().length === 0 ? (
+                            <View style={styles.emptyDiscussion}>
+                                <MaterialIcons name="forum" size={48} color="#6B7280" />
+                                <Text style={styles.emptyText}>No discussions yet</Text>
+                                <Text style={styles.emptySubtext}>Be the first to ask a question!</Text>
+                            </View>
+                        ) : (
+                            getMainMessages().map((message) => {
+                                const replies = getReplies(message.id);
+                                const isExpanded = expandedThreads[message.id];
+                                const replyingTo = replyTo === message.id;
+
+                                return (
+                                    <View key={message.id} style={styles.messageCard}>
+                                        {/* Main Message */}
+                                        <TouchableOpacity
+                                            style={styles.messageHeader}
+                                            onPress={() => replies.length > 0 && toggleThread(message.id)}
+                                            activeOpacity={replies.length > 0 ? 0.7 : 1}
+                                        >
+                                            <View style={styles.userAvatar}>
+                                                <Text style={styles.avatarText}>
+                                                    {message.user_name?.charAt(0).toUpperCase() || 'S'}
+                                                </Text>
+                                            </View>
+                                            <View style={styles.messageContent}>
+                                                <View style={styles.messageTop}>
+                                                    <Text style={styles.userName}>{message.user_name}</Text>
+                                                    <Text style={styles.messageTime}>{formatTimeAgo(message.created_at)}</Text>
+                                                </View>
+                                                <Text style={styles.messageText}>{message.message}</Text>
+                                            </View>
+                                        </TouchableOpacity>
+
+                                        {/* Reply Button */}
+                                        <View style={styles.messageActions}>
+                                            {replies.length > 0 && (
+                                                <TouchableOpacity
+                                                    style={styles.actionButton}
+                                                    onPress={() => toggleThread(message.id)}
+                                                >
+                                                    <MaterialIcons
+                                                        name={isExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+                                                        size={18}
+                                                        color="#3B82F6"
+                                                    />
+                                                    <Text style={styles.actionText}>
+                                                        {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            )}
+                                            <TouchableOpacity
+                                                style={styles.actionButton}
+                                                onPress={() => setReplyTo(replyingTo ? null : message.id)}
+                                            >
+                                                <MaterialIcons name="reply" size={18} color="#3B82F6" />
+                                                <Text style={styles.actionText}>Reply</Text>
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        {/* Replies Thread */}
+                                        {isExpanded && replies.length > 0 && (
+                                            <View style={styles.repliesContainer}>
+                                                {replies.map((reply) => (
+                                                    <View key={reply.id} style={styles.replyCard}>
+                                                        <View style={styles.replyLine} />
+                                                        <View style={styles.replyContent}>
+                                                            <View style={styles.userAvatarSmall}>
+                                                                <Text style={styles.avatarTextSmall}>
+                                                                    {reply.user_name?.charAt(0).toUpperCase() || 'S'}
+                                                                </Text>
+                                                            </View>
+                                                            <View style={styles.replyBody}>
+                                                                <View style={styles.replyTop}>
+                                                                    <Text style={styles.replyUserName}>{reply.user_name}</Text>
+                                                                    <Text style={styles.replyTime}>{formatTimeAgo(reply.created_at)}</Text>
+                                                                </View>
+                                                                <Text style={styles.replyText}>{reply.message}</Text>
+                                                            </View>
+                                                        </View>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        )}
+
+                                        {/* Reply Input */}
+                                        {replyingTo && (
+                                            <View style={styles.replyInputContainer}>
+                                                <View style={styles.replyLine} />
+                                                <View style={styles.replyInputBox}>
+                                                    <TextInput
+                                                        style={styles.replyInput}
+                                                        placeholder="Write a reply..."
+                                                        placeholderTextColor="#6B7280"
+                                                        value={replyText}
+                                                        onChangeText={setReplyText}
+                                                        multiline
+                                                        autoFocus
+                                                    />
+                                                    <View style={styles.replyActions}>
+                                                        <TouchableOpacity
+                                                            style={styles.cancelReplyButton}
+                                                            onPress={() => {
+                                                                setReplyTo(null);
+                                                                setReplyText('');
+                                                            }}
+                                                        >
+                                                            <Text style={styles.cancelReplyText}>Cancel</Text>
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity
+                                                            style={[
+                                                                styles.sendReplyButton,
+                                                                !replyText.trim() && styles.sendButtonDisabled
+                                                            ]}
+                                                            onPress={() => postReply(message.id)}
+                                                            disabled={!replyText.trim()}
+                                                        >
+                                                            <Text style={styles.sendReplyText}>Send</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        )}
+                                    </View>
+                                );
+                            })
+                        )}
                     </View>
                 );
             case 'ai':
@@ -396,12 +774,12 @@ export default function LectureVideoScreen({ navigation, route }) {
                         onPress={() => setActiveTab('upvotes')}
                     >
                         <MaterialIcons
-                            name="thumb-up"
+                            name={hasUpvoted ? "thumb-up" : "thumb-up-off-alt"}
                             size={24}
                             color={activeTab === 'upvotes' ? '#3B82F6' : '#9CA3AF'}
                         />
                         <Text style={[styles.tabText, activeTab === 'upvotes' && styles.activeTabText]}>
-                            1.2K Upvotes
+                            {upvoteCount.toLocaleString()} {upvoteCount === 1 ? 'Upvote' : 'Upvotes'}
                         </Text>
                     </TouchableOpacity>
 
@@ -454,34 +832,7 @@ export default function LectureVideoScreen({ navigation, route }) {
                 </ScrollView>
 
                 {/* Bottom Navigation */}
-                <View style={styles.bottomNav}>
-                    <TouchableOpacity
-                        style={styles.navItem}
-                        onPress={() => navigation.navigate('Dashboard')}
-                    >
-                        <MaterialIcons name="dashboard" size={24} color="#9CA3AF" />
-                        <Text style={styles.navLabel}>Dashboard</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem}>
-                        <MaterialIcons name="school" size={24} color="#3B82F6" />
-                        <Text style={[styles.navLabel, { color: '#3B82F6' }]}>Learning</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem}>
-                        <MaterialIcons name="event-available" size={24} color="#9CA3AF" />
-                        <Text style={styles.navLabel}>Attendance</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.navItem}
-                        onPress={() => navigation.navigate('Notices')}
-                    >
-                        <MaterialIcons name="notifications" size={24} color="#9CA3AF" />
-                        <Text style={styles.navLabel}>Notices</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem}>
-                        <MaterialIcons name="person" size={24} color="#9CA3AF" />
-                        <Text style={styles.navLabel}>Profile</Text>
-                    </TouchableOpacity>
-                </View>
+                <BottomNav activeTab="Learning" />
             </SafeAreaView>
         </View>
     );
@@ -575,6 +926,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderWidth: 2,
         borderColor: '#3B82F6',
+    },
+    upvoteButtonActive: {
+        backgroundColor: '#3B82F6',
+        borderColor: '#2563EB',
     },
     upvoteCount: {
         fontSize: 24,
@@ -833,23 +1188,222 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: '600',
     },
-    bottomNav: {
+    newMessageContainer: {
         flexDirection: 'row',
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.1)',
-        paddingBottom: 20,
-        paddingTop: 8,
+        gap: 8,
+        marginBottom: 24,
+        alignItems: 'flex-end',
     },
-    navItem: {
+    messageInput: {
         flex: 1,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 12,
+        padding: 12,
+        color: '#fff',
+        fontSize: 14,
+        maxHeight: 100,
+    },
+    sendButton: {
+        backgroundColor: '#3B82F6',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 8,
     },
-    navLabel: {
-        fontSize: 11,
+    sendButtonDisabled: {
+        backgroundColor: '#374151',
+        opacity: 0.5,
+    },
+    loadingContainer: {
+        paddingVertical: 40,
+        alignItems: 'center',
+        gap: 12,
+    },
+    loadingText: {
         color: '#9CA3AF',
-        marginTop: 4,
+        fontSize: 14,
+    },
+    emptyDiscussion: {
+        paddingVertical: 60,
+        alignItems: 'center',
+    },
+    emptyText: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#D1D5DB',
+        marginTop: 16,
+    },
+    emptySubtext: {
+        fontSize: 14,
+        color: '#9CA3AF',
+        marginTop: 8,
+    },
+    messageCard: {
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 12,
+    },
+    messageHeader: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    userAvatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#3B82F6',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    messageContent: {
+        flex: 1,
+    },
+    messageTop: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 4,
+    },
+    userName: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    messageTime: {
+        color: '#9CA3AF',
+        fontSize: 12,
+    },
+    messageText: {
+        color: '#D1D5DB',
+        fontSize: 14,
+        lineHeight: 20,
+    },
+    messageActions: {
+        flexDirection: 'row',
+        gap: 16,
+        marginTop: 8,
+        marginLeft: 52,
+    },
+    actionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    actionText: {
+        color: '#3B82F6',
+        fontSize: 13,
+        fontWeight: '500',
+    },
+    repliesContainer: {
+        marginTop: 12,
+        marginLeft: 26,
+    },
+    replyCard: {
+        flexDirection: 'row',
+        marginBottom: 8,
+    },
+    replyLine: {
+        width: 2,
+        backgroundColor: 'rgba(59, 130, 246, 0.3)',
+        marginRight: 12,
+        borderRadius: 1,
+    },
+    replyContent: {
+        flex: 1,
+        flexDirection: 'row',
+        gap: 8,
+    },
+    userAvatarSmall: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#6366F1',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarTextSmall: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    replyBody: {
+        flex: 1,
+    },
+    replyTop: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 2,
+    },
+    replyUserName: {
+        color: '#D1D5DB',
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    replyTime: {
+        color: '#9CA3AF',
+        fontSize: 11,
+    },
+    replyText: {
+        color: '#D1D5DB',
+        fontSize: 13,
+        lineHeight: 18,
+    },
+    replyInputContainer: {
+        flexDirection: 'row',
+        marginTop: 12,
+        marginLeft: 26,
+    },
+    replyInputBox: {
+        flex: 1,
+    },
+    replyInput: {
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(59, 130, 246, 0.3)',
+        borderRadius: 8,
+        padding: 10,
+        color: '#fff',
+        fontSize: 13,
+        marginBottom: 8,
+        maxHeight: 80,
+    },
+    replyActions: {
+        flexDirection: 'row',
+        gap: 8,
+        justifyContent: 'flex-end',
+    },
+    cancelReplyButton: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 6,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+    },
+    cancelReplyText: {
+        color: '#9CA3AF',
+        fontSize: 13,
+        fontWeight: '500',
+    },
+    sendReplyButton: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 6,
+        backgroundColor: '#3B82F6',
+    },
+    sendReplyText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '600',
     },
 });

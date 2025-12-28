@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Modal, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Modal, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { getSubjects, createSubject } from '../lib/learningHub';
+import BottomNav from '../components/BottomNav';
+import Background from '../components/Background';
 
 export default function LearningHubScreen({ navigation }) {
     const [subjects, setSubjects] = useState([]);
@@ -56,91 +58,66 @@ export default function LearningHubScreen({ navigation }) {
 
     return (
         <View style={styles.container}>
-            <LinearGradient
-                colors={['#1E1A3B', '#101021', '#0D1B2A']}
-                style={styles.gradient}
-            />
-            <LinearGradient
-                colors={['rgba(109, 40, 217, 0.4)', 'rgba(59, 130, 246, 0.2)', 'transparent']}
-                style={styles.glowGradient}
-            />
+            <Background />
 
-            <SafeAreaView style={styles.safeArea}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <Text style={styles.title}>Learning Hub</Text>
-                    <TouchableOpacity 
-                        style={styles.addButton}
-                        onPress={() => setModalVisible(true)}
-                    >
-                        <MaterialIcons name="add" size={24} color="#fff" />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Subjects List */}
+            <SafeAreaView style={styles.safeArea} edges={['top']}>
+                {/* Main Content */}
                 <ScrollView
                     style={styles.scrollView}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
                 >
-                    {loading ? (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="large" color="#60A5FA" />
-                            <Text style={styles.loadingText}>Loading subjects...</Text>
-                        </View>
-                    ) : subjects.length === 0 ? (
-                        <View style={styles.emptyContainer}>
-                            <MaterialIcons name="school" size={64} color="rgba(255,255,255,0.2)" />
-                            <Text style={styles.emptyText}>No subjects yet</Text>
-                            <Text style={styles.emptySubtext}>Tap the + button to add your first subject</Text>
-                        </View>
-                    ) : (
-                        subjects.map((subject) => (
-                            <TouchableOpacity
-                                key={subject.id}
-                                style={styles.subjectCard}
-                                onPress={() => navigation.navigate('SubjectTopics', { subject })}
-                                activeOpacity={0.8}
+                    <View style={styles.contentColumn}>
+                        {/* Header */}
+                        <View style={styles.header}>
+                            <View>
+                                <Text style={styles.title}>Learning Hub</Text>
+                                <Text style={styles.subtitle}>Explore your subjects</Text>
+                            </View>
+                            <TouchableOpacity 
+                                style={styles.addButton}
+                                onPress={() => setModalVisible(true)}
+                                activeOpacity={0.7}
                             >
-                                <View>
-                                    <Text style={styles.subjectName}>{subject.name}</Text>
-                                    <Text style={styles.subjectTopics}>{subject.topics_preview || 'No topics yet'}</Text>
-                                </View>
-                                <MaterialIcons name="chevron-right" size={24} color="rgba(255,255,255,0.5)" />
+                                <MaterialIcons name="add" size={24} color="#8E8E93" />
                             </TouchableOpacity>
-                        ))
-                    )}
+                        </View>
+
+                        {/* Subjects List */}
+                        <View style={[styles.section, { marginBottom: 100 }]}        >
+                            {loading ? (
+                                <View style={styles.loadingCard}>
+                                    <ActivityIndicator size="large" color="#0A84FF" />
+                                    <Text style={styles.loadingText}>Loading subjects...</Text>
+                                </View>
+                            ) : subjects.length === 0 ? (
+                                <View style={styles.emptyCard}>
+                                    <MaterialIcons name="school" size={48} color="#8E8E93" />
+                                    <Text style={styles.emptyText}>No subjects yet</Text>
+                                    <Text style={styles.emptySubtext}>Tap the + button to add your first subject</Text>
+                                </View>
+                            ) : (
+                                subjects.map((subject) => (
+                                    <TouchableOpacity
+                                        key={subject.id}
+                                        style={styles.subjectCard}
+                                        onPress={() => navigation.navigate('SubjectTopics', { subject })}
+                                        activeOpacity={0.8}
+                                    >
+                                        <View style={styles.subjectInfo}>
+                                            <Text style={styles.subjectName}>{subject.name}</Text>
+                                            <Text style={styles.subjectTopics}>{subject.topics_preview || 'No topics yet'}</Text>
+                                        </View>
+                                        <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
+                                    </TouchableOpacity>
+                                ))
+                            )}
+                        </View>
+                    </View>
                 </ScrollView>
 
                 {/* Bottom Navigation */}
-                <View style={styles.bottomNav}>
-                    <TouchableOpacity
-                        style={styles.navItem}
-                        onPress={() => navigation.navigate('Dashboard')}
-                    >
-                        <MaterialIcons name="dashboard" size={24} color="#9CA3AF" />
-                        <Text style={styles.navLabel}>Dashboard</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem}>
-                        <MaterialIcons name="school" size={24} color="#60A5FA" />
-                        <Text style={[styles.navLabel, { color: '#60A5FA' }]}>Learning</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.navItem}
-                        onPress={() => navigation.navigate('Notices')}
-                    >
-                        <MaterialIcons name="notifications" size={24} color="#9CA3AF" />
-                        <Text style={styles.navLabel}>Notices</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem}>
-                        <MaterialIcons name="event-available" size={24} color="#9CA3AF" />
-                        <Text style={styles.navLabel}>Attendance</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem}>
-                        <MaterialIcons name="person" size={24} color="#9CA3AF" />
-                        <Text style={styles.navLabel}>Profile</Text>
-                    </TouchableOpacity>
-                </View>
+                <BottomNav activeTab="Learning" />
 
                 {/* Add Subject Modal */}
                 <Modal
@@ -199,144 +176,140 @@ export default function LearningHubScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#111827',
-    },
-    gradient: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-    },
-    glowGradient: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: '50%',
-        opacity: 0.3,
+        backgroundColor: 'transparent',
     },
     safeArea: {
         flex: 1,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingTop: 24,
-        paddingBottom: 16,
-    },
-    title: {
-        fontSize: 30,
-        fontWeight: 'bold',
-        color: '#F3F4F6',
-    },
-    addButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.2)',
     },
     scrollView: {
         flex: 1,
     },
     scrollContent: {
-        padding: 16,
         paddingBottom: 100,
     },
-    subjectCard: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        padding: 20,
-        borderRadius: 12,
-        marginBottom: 16,
+    contentColumn: {
+        width: '100%',
+        maxWidth: 1400,
+        alignSelf: 'center',
+        paddingHorizontal: 20,
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 32,
+    },
+    title: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: '#ffffff',
+        marginBottom: 4,
+    },
+    subtitle: {
+        fontSize: 16,
+        color: '#8E8E93',
+    },
+    addButton: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(28, 28, 46, 0.7)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    section: {
+        marginBottom: 32,
+    },
+    subjectCard: {
+        backgroundColor: 'rgba(28, 28, 46, 0.7)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 12,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 2,
+            },
+            web: {
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            }
+        }),
+    },
+    subjectInfo: {
+        flex: 1,
     },
     subjectName: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: '600',
-        color: '#fff',
+        color: '#ffffff',
         marginBottom: 4,
     },
     subjectTopics: {
         fontSize: 14,
-        color: '#9CA3AF',
+        color: '#8E8E93',
     },
-    loadingContainer: {
-        flex: 1,
+    loadingCard: {
+        backgroundColor: 'rgba(28, 28, 46, 0.7)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 32,
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingTop: 100,
+        gap: 12,
     },
     loadingText: {
-        color: '#9CA3AF',
+        color: '#8E8E93',
         fontSize: 16,
-        marginTop: 16,
     },
-    emptyContainer: {
-        flex: 1,
+    emptyCard: {
+        backgroundColor: 'rgba(28, 28, 46, 0.7)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 32,
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingTop: 100,
     },
     emptyText: {
-        color: '#F3F4F6',
-        fontSize: 20,
+        color: '#ffffff',
+        fontSize: 18,
         fontWeight: '600',
-        marginTop: 16,
+        marginTop: 12,
     },
     emptySubtext: {
-        color: '#9CA3AF',
+        color: '#8E8E93',
         fontSize: 14,
         marginTop: 8,
         textAlign: 'center',
     },
-    bottomNav: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        flexDirection: 'row',
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.1)',
-        paddingBottom: 20,
-        paddingTop: 8,
-    },
-    navItem: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 8,
-    },
-    navLabel: {
-        fontSize: 11,
-        color: '#9CA3AF',
-        marginTop: 4,
-    },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.7)',
+        backgroundColor: 'rgba(0,0,0,0.8)',
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
     },
     modalContent: {
-        backgroundColor: '#1F2937',
+        backgroundColor: 'rgba(28, 28, 46, 0.95)',
         borderRadius: 16,
         padding: 24,
         width: '100%',
         maxWidth: 400,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     modalHeader: {
         flexDirection: 'row',
@@ -347,15 +320,15 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#F9FAFB',
+        color: '#ffffff',
     },
     input: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-        borderRadius: 10,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: 12,
         padding: 14,
-        color: '#F9FAFB',
+        color: '#ffffff',
         fontSize: 15,
         marginBottom: 16,
     },
@@ -367,24 +340,24 @@ const styles = StyleSheet.create({
     modalButton: {
         flex: 1,
         paddingVertical: 14,
-        borderRadius: 10,
+        borderRadius: 12,
         alignItems: 'center',
     },
     cancelButton: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     cancelButtonText: {
-        color: '#9CA3AF',
+        color: '#8E8E93',
         fontSize: 15,
         fontWeight: '600',
     },
     addModalButton: {
-        backgroundColor: '#60A5FA',
+        backgroundColor: '#0A84FF',
     },
     addModalButtonText: {
-        color: '#fff',
+        color: '#ffffff',
         fontSize: 15,
         fontWeight: '600',
     },

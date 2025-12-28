@@ -8,6 +8,7 @@ import Background from './components/Background';
 import SignInScreen from './screens/SignInScreen';
 import SignUpScreen from './screens/Profile';
 import ProfileEnterScreen from './screens/ProfileEnterScreen';
+import ProfileDetailScreen from './screens/ProfileDetailScreen';
 import GetStartedScreen from './screens/GetStartedScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import AdminDashboardScreen from './screens/AdminDashboardScreen';
@@ -30,6 +31,7 @@ const linking = {
       SignIn: 'signin',
       Profile: 'profile',
       ProfileEnter: 'profile-enter',
+      ProfileDetail: 'profile-detail',
       GetStarted: 'get-started',
       Dashboard: 'dashboard',
       AdminDashboard: 'admin-dashboard',
@@ -66,6 +68,7 @@ export default function App() {
             <Stack.Screen name="SignIn" component={SignInScreen} />
             <Stack.Screen name="Profile" component={SignUpScreen} />
             <Stack.Screen name="ProfileEnter" component={ProfileEnterScreen} />
+            <Stack.Screen name="ProfileDetail" component={ProfileDetailScreen} />
             <Stack.Screen name="GetStarted" component={GetStartedScreen} />
             <Stack.Screen name="Dashboard" component={DashboardScreen} />
             <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />

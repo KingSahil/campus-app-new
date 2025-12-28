@@ -209,12 +209,12 @@ export default function ManageAttendanceScreen({ navigation, route }) {
                                 </View>
                             </View>
 
-                            {activeSession.session_code && (
+                            {/* {activeSession.session_code && (
                                 <View style={styles.sessionCodeCard}>
                                     <Text style={styles.sessionCodeLabel}>Session Code</Text>
                                     <Text style={styles.sessionCodeText}>{activeSession.session_code}</Text>
                                 </View>
-                            )}
+                            )} */}
 
                             <TouchableOpacity 
                                 style={styles.viewAttendanceButton}

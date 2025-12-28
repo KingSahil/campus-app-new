@@ -2,25 +2,28 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import BottomNav from '../components/BottomNav';
 
 export default function AdminDashboardScreen({ navigation }) {
     const quickAccessItems = [
-        { icon: 'restaurant', label: 'Food', color: '#EF4444' },
-        { icon: 'local-library', label: 'Library', color: '#10B981' },
-        { icon: 'campaign', label: 'Student Voice', color: '#A855F7' },
-        { 
-            icon: 'checklist', 
-            label: 'Attendance', 
+        {
+            icon: 'checklist',
+            label: 'Attendance',
             color: '#F97316',
             onPress: () => navigation.navigate('AttendanceAdmin')
         },
-        { icon: 'storefront', label: 'Campus\nMarketplace', color: '#EC4899' },
-        { 
-            icon: 'menu-book', 
-            label: 'Learning', 
+        {
+            icon: 'menu-book',
+            label: 'Learning',
             color: '#06B6D4',
             onPress: () => navigation.navigate('LearningHub')
         },
+        { icon: 'restaurant', label: 'Food', color: '#EF4444' },
+        { icon: 'local-library', label: 'Library', color: '#10B981' },
+        { icon: 'campaign', label: 'Student Voice', color: '#A855F7' },
+
+        { icon: 'storefront', label: 'Campus\nMarketplace', color: '#EC4899' },
+
     ];
 
     return (
@@ -35,12 +38,15 @@ export default function AdminDashboardScreen({ navigation }) {
                                 <Text style={styles.title}>Admin Portal</Text>
                                 <Text style={styles.subtitle}>Welcome, Professor</Text>
                             </View>
-                            <View style={styles.profilePicContainer}>
+                            <TouchableOpacity 
+                                style={styles.profilePicContainer}
+                                onPress={() => navigation.navigate('ProfileDetail')}
+                            >
                                 <Image
                                     source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC_UmOn2Ca2nFEDCfiijmx_SEi5EH7D2Y6catOJoHdc88XpwtWj5zuuQ5dwNK3a7Vj-26z0EWTwIWx9VZAGwkLntb__QkElZ01Us3OAPD9MqMORkDD0exnYBC5tsdW0CqAXJPvj5vQ2xXB5z23WE7ht34HAKNIQ2JaMajtyMPmUoBdGtODTxv_B148bL522wslFyfrgwmODlqI6XuD9T1Go9MhoAdT0_OCGvuW7aPDZeK-3c0mk5T1l3noLxaYZqL_N6G4BNePt4Xs' }}
                                     style={styles.profilePic}
                                 />
-                            </View>
+                            </TouchableOpacity>
                         </View>
 
                         {/* Quick Access */}
@@ -64,36 +70,7 @@ export default function AdminDashboardScreen({ navigation }) {
                 </ScrollView>
 
                 {/* Bottom Navigation */}
-                <View style={styles.bottomNav}>
-                    <TouchableOpacity style={styles.navItem} activeOpacity={0.7}>
-                        <MaterialIcons name="dashboard" size={24} color="#0A84FF" />
-                        <Text style={[styles.navLabel, { color: '#0A84FF' }]}>Dashboard</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                        style={styles.navItem} 
-                        activeOpacity={0.7}
-                        onPress={() => navigation.navigate('LearningHub')}
-                    >
-                        <MaterialIcons name="school" size={24} color="#8E8E93" />
-                        <Text style={styles.navLabel}>Learning</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem} activeOpacity={0.7}>
-                        <MaterialIcons name="notifications" size={24} color="#8E8E93" />
-                        <Text style={styles.navLabel}>Notices</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                        style={styles.navItem} 
-                        activeOpacity={0.7}
-                        onPress={() => navigation.navigate('AttendanceAdmin')}
-                    >
-                        <MaterialIcons name="checklist" size={24} color="#8E8E93" />
-                        <Text style={styles.navLabel}>Attendance</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.navItem} activeOpacity={0.7}>
-                        <MaterialIcons name="person" size={24} color="#8E8E93" />
-                        <Text style={styles.navLabel}>Profile</Text>
-                    </TouchableOpacity>
-                </View>
+                <BottomNav activeTab="Dashboard" />
             </SafeAreaView>
         </View>
     );
@@ -182,41 +159,5 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#ffffff',
         lineHeight: 20,
-    },
-    bottomNav: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255, 255, 255, 0.1)',
-        paddingBottom: Platform.select({ ios: 24, default: 24 }),
-        paddingTop: 8,
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: -2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-            },
-            android: {
-                elevation: 8,
-            },
-        }),
-    },
-    navItem: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 4,
-    },
-    navLabel: {
-        fontSize: 10,
-        fontWeight: '500',
-        color: '#8E8E93',
-        marginTop: 4,
     },
 });
