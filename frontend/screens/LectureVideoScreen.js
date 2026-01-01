@@ -6,6 +6,7 @@ import YoutubePlayer from 'react-native-youtube-iframe';
 import { supabase } from '../lib/supabase';
 import { auth0 } from '../lib/auth0';
 import BottomNav from '../components/BottomNav';
+import Constants from 'expo-constants';
 
 const { width } = Dimensions.get('window');
 
@@ -50,6 +51,7 @@ export default function LectureVideoScreen({ navigation, route }) {
     const { video } = route.params;
     const [activeTab, setActiveTab] = useState('upvotes');
     const videoRef = useRef(null);
+    const youtubePlayerRef = useRef(null);
     const [currentTime, setCurrentTime] = useState(0);
     
     // Upvote states
@@ -71,6 +73,12 @@ export default function LectureVideoScreen({ navigation, route }) {
     const [summary, setSummary] = useState('')
     const [loadingSummary, setLoadingSummary] = useState(false);
     
+    // Chapters states
+    const [chapters, setChapters] = useState([]);
+    const [loadingChapters, setLoadingChapters] = useState(false);
+    const [overallSummary, setOverallSummary] = useState('');
+    const [playerReady, setPlayerReady] = useState(false);
+    
     // Quiz states
     const [quiz, setQuiz] = useState(null);
     const [loadingQuiz, setLoadingQuiz] = useState(false);
@@ -85,6 +93,7 @@ export default function LectureVideoScreen({ navigation, route }) {
         getUserInfo();
         fetchUpvotes();
         fetchDiscussions();
+        fetchSavedChapters();
     }, []);
 
     const getUserInfo = async () => {
@@ -230,6 +239,88 @@ export default function LectureVideoScreen({ navigation, route }) {
         }
     };
 
+    const generateChapters = async () => {
+        if (!isYouTubeVideo) {
+            Alert.alert('Not Supported', 'Chapter generation is only available for YouTube videos');
+            return;
+        }
+
+        setLoadingChapters(true);
+        try {
+            // Get backend URL with platform-specific handling
+            let BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+            
+            // If no env variable set, use platform-specific defaults
+            if (!BACKEND_URL) {
+                if (Platform.OS === 'android') {
+                    // Android emulator uses 10.0.2.2 to access host machine's localhost
+                    BACKEND_URL = 'http://10.0.2.2:8000';
+                } else if (Platform.OS === 'ios') {
+                    // iOS simulator can use localhost
+                    BACKEND_URL = 'http://localhost:8000';
+                } else if (Platform.OS === 'web') {
+                    // Web can use localhost
+                    BACKEND_URL = 'http://localhost:8000';
+                } else {
+                    // For physical devices, you need to use your computer's IP address
+                    // Find your IP: Windows (ipconfig), Mac/Linux (ifconfig)
+                    // Replace with your actual IP address
+                    BACKEND_URL = 'http://localhost:8000';
+                }
+            }
+            
+            console.log('Using backend URL:', BACKEND_URL);
+            
+            const response = await fetch(`${BACKEND_URL}/analyze`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    video_url: video.url,
+                    api_provider: 'gemini', // or 'openrouter'
+                    model: 'gemini-2.0-flash-exp', // or 'anthropic/claude-3.5-sonnet' for openrouter
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `Server error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // Update state with chapters and summary
+            setChapters(data.chapters || []);
+            setOverallSummary(data.summary || '');
+            
+            // Save to database for future use
+            await saveChaptersToDatabase(data.chapters || [], data.summary || '');
+            
+            Alert.alert('Success', 'Chapters generated successfully!');
+        } catch (error) {
+            console.error('Chapter Generation Error:', error);
+            
+            // Provide more helpful error messages
+            let errorMessage = 'Failed to generate chapters.';
+            
+            if (error.message === 'Network request failed' || error.message === 'Failed to fetch') {
+                errorMessage = `Cannot connect to backend server.\n\n` +
+                    `Please ensure:\n` +
+                    `1. Backend is running (python main.py)\n` +
+                    `2. Server is at http://localhost:8000\n` +
+                    `3. Check your .env file has EXPO_PUBLIC_BACKEND_URL\n\n` +
+                    `Platform: ${Platform.OS}`;
+            } else {
+                errorMessage = error.message || errorMessage;
+            }
+            
+            Alert.alert('Backend Connection Error', errorMessage);
+        } finally {
+            setLoadingChapters(false);
+        }
+    };
+
     const generateQuiz = async () => {
         setLoadingQuiz(true);
         try {
@@ -299,6 +390,59 @@ export default function LectureVideoScreen({ navigation, route }) {
             console.error('Error fetching discussions:', error);
         } finally {
             setLoadingDiscussions(false);
+        }
+    };
+
+    const fetchSavedChapters = async () => {
+        if (!video.id) return;
+        
+        try {
+            const { data, error } = await supabase
+                .from('video_chapters')
+                .select('chapters, overall_summary')
+                .eq('video_id', video.id)
+                .single();
+
+            if (error) {
+                // No saved chapters yet, that's okay
+                if (error.code !== 'PGRST116') {
+                    console.error('Error fetching saved chapters:', error);
+                }
+                return;
+            }
+
+            if (data) {
+                setChapters(data.chapters || []);
+                setOverallSummary(data.overall_summary || '');
+                console.log('Loaded saved chapters from database');
+            }
+        } catch (error) {
+            console.error('Error loading chapters:', error);
+        }
+    };
+
+    const saveChaptersToDatabase = async (chaptersData, summaryData) => {
+        if (!video.id) return;
+        
+        try {
+            const { error } = await supabase
+                .from('video_chapters')
+                .upsert({
+                    video_id: video.id,
+                    chapters: chaptersData,
+                    overall_summary: summaryData,
+                    updated_at: new Date().toISOString()
+                }, {
+                    onConflict: 'video_id'
+                });
+
+            if (error) {
+                console.error('Error saving chapters:', error);
+            } else {
+                console.log('Chapters saved to database successfully');
+            }
+        } catch (error) {
+            console.error('Error saving chapters:', error);
         }
     };
 
@@ -384,6 +528,48 @@ export default function LectureVideoScreen({ navigation, route }) {
         if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
         if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
         return date.toLocaleDateString();
+    };
+
+    const handleSeekToTimestamp = async (timestamp) => {
+        // Convert timestamp (MM:SS or HH:MM:SS) to seconds
+        const parts = timestamp.split(':').map(Number);
+        let seconds = 0;
+        
+        if (parts.length === 2) {
+            // MM:SS format
+            seconds = parts[0] * 60 + parts[1];
+        } else if (parts.length === 3) {
+            // HH:MM:SS format
+            seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        }
+
+        console.log('Attempting to seek to:', seconds, 'seconds');
+
+        if (isYouTubeVideo && youtubeVideoId) {
+            // For YouTube videos
+            if (youtubePlayerRef.current && youtubePlayerRef.current.seekTo) {
+                try {
+                    await youtubePlayerRef.current.seekTo(seconds, true);
+                    console.log('Successfully seeked to', seconds);
+                } catch (error) {
+                    console.error('Seek error:', error);
+                    Alert.alert('Seek Failed', 'Could not seek to timestamp: ' + error.message);
+                }
+            } else {
+                console.error('YouTube player ref not available or seekTo method missing');
+                console.log('Ref current:', youtubePlayerRef.current);
+                console.log('PlayerReady:', playerReady);
+                Alert.alert('Player Not Ready', 'YouTube player is not ready yet. Please wait a moment and try again.');
+            }
+        } else {
+            // For direct videos using expo-video
+            if (videoRef.current && videoRef.current.player) {
+                videoRef.current.player.currentTime = seconds;
+                videoRef.current.player.play();
+            } else {
+                Alert.alert('Player Not Ready', 'Please wait for the video to load');
+            }
+        }
     };
 
     const renderTabContent = () => {
@@ -622,6 +808,86 @@ export default function LectureVideoScreen({ navigation, route }) {
                         ) : null}
                     </View>
                 );
+            case 'chapters':
+                return (
+                    <View style={styles.tabContent}>
+                        <Text style={styles.sectionTitle}>Video Chapters</Text>
+                        
+                        {!chapters.length ? (
+                            <View style={styles.chaptersCard}>
+                                <MaterialIcons name="video-library" size={48} color="#3B82F6" />
+                                <Text style={styles.chaptersText}>
+                                    Generate AI-powered chapters with timestamps and summaries
+                                </Text>
+                                {!isYouTubeVideo && (
+                                    <Text style={styles.chaptersWarning}>
+                                        ⚠️ Only available for YouTube videos
+                                    </Text>
+                                )}
+                                <TouchableOpacity 
+                                    style={[styles.chaptersButton, !isYouTubeVideo && styles.chaptersButtonDisabled]}
+                                    onPress={generateChapters}
+                                    disabled={loadingChapters || !isYouTubeVideo}
+                                >
+                                    {loadingChapters ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <>
+                                            <MaterialIcons name="auto-awesome" size={20} color="#fff" />
+                                            <Text style={styles.chaptersButtonText}>Generate Chapters</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <View>
+                                {/* Overall Summary */}
+                                {overallSummary ? (
+                                    <View style={styles.overallSummaryCard}>
+                                        <View style={styles.summaryHeader}>
+                                            <MaterialIcons name="description" size={24} color="#3B82F6" />
+                                            <Text style={styles.overallSummaryTitle}>Video Summary</Text>
+                                        </View>
+                                        <Text style={styles.overallSummaryText}>{overallSummary}</Text>
+                                    </View>
+                                ) : null}
+
+                                {/* Chapters List */}
+                                <View style={styles.chaptersHeader}>
+                                    <Text style={styles.chaptersListTitle}>Chapters ({chapters.length})</Text>
+                                    <TouchableOpacity 
+                                        style={styles.regenerateButton}
+                                        onPress={generateChapters}
+                                        disabled={loadingChapters}
+                                    >
+                                        <MaterialIcons name="refresh" size={18} color="#3B82F6" />
+                                        <Text style={styles.regenerateText}>Regenerate</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                {chapters.map((chapter, index) => (
+                                    <TouchableOpacity
+                                        key={index}
+                                        style={styles.chapterCard}
+                                        onPress={() => handleSeekToTimestamp(chapter.timestamp)}
+                                    >
+                                        <View style={styles.chapterLeft}>
+                                            <View style={styles.chapterNumber}>
+                                                <Text style={styles.chapterNumberText}>{index + 1}</Text>
+                                            </View>
+                                            <View style={styles.chapterInfo}>
+                                                <Text style={styles.chapterTimestamp}>{chapter.timestamp}</Text>
+                                                <Text style={styles.chapterTitle}>{chapter.title}</Text>
+                                                <Text style={styles.chapterSummary}>{chapter.summary}</Text>
+                                            </View>
+                                        </View>
+                                        <MaterialIcons name="play-circle-outline" size={28} color="#3B82F6" />
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+                );
             case 'quiz':
                 return (
                     <View style={styles.tabContent}>
@@ -757,9 +1023,19 @@ export default function LectureVideoScreen({ navigation, route }) {
                             />
                         ) : (
                             <YoutubePlayer
+                                ref={youtubePlayerRef}
                                 height={width * 9 / 16}
                                 videoId={youtubeVideoId}
                                 play={false}
+                                onReady={() => {
+                                    console.log('YouTube player ready');
+                                    setPlayerReady(true);
+                                }}
+                                initialPlayerParams={{
+                                    preventFullScreen: false,
+                                    controls: true,
+                                    modestbranding: true,
+                                }}
                             />
                         )
                     ) : (
@@ -808,6 +1084,20 @@ export default function LectureVideoScreen({ navigation, route }) {
                         />
                         <Text style={[styles.tabText, activeTab === 'ai' && styles.activeTabText]}>
                             AI Summarizer
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.tab, activeTab === 'chapters' && styles.activeTab]}
+                        onPress={() => setActiveTab('chapters')}
+                    >
+                        <MaterialIcons
+                            name="video-library"
+                            size={24}
+                            color={activeTab === 'chapters' ? '#3B82F6' : '#9CA3AF'}
+                        />
+                        <Text style={[styles.tabText, activeTab === 'chapters' && styles.activeTabText]}>
+                            Chapters
                         </Text>
                     </TouchableOpacity>
 
@@ -1405,5 +1695,149 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 13,
         fontWeight: '600',
+    },
+    // Chapters styles
+    chaptersCard: {
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(59, 130, 246, 0.3)',
+        borderRadius: 16,
+        padding: 24,
+        alignItems: 'center',
+    },
+    chaptersText: {
+        fontSize: 15,
+        color: '#D1D5DB',
+        textAlign: 'center',
+        marginVertical: 16,
+        lineHeight: 22,
+    },
+    chaptersWarning: {
+        fontSize: 13,
+        color: '#F59E0B',
+        textAlign: 'center',
+        marginBottom: 8,
+        fontWeight: '500',
+    },
+    chaptersButton: {
+        backgroundColor: '#3B82F6',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 8,
+        marginTop: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    chaptersButtonDisabled: {
+        backgroundColor: '#374151',
+        opacity: 0.5,
+    },
+    chaptersButtonText: {
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    overallSummaryCard: {
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(59, 130, 246, 0.3)',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 20,
+    },
+    summaryHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 12,
+    },
+    overallSummaryTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#3B82F6',
+    },
+    overallSummaryText: {
+        fontSize: 14,
+        color: '#D1D5DB',
+        lineHeight: 20,
+    },
+    chaptersHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    chaptersListTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#fff',
+    },
+    regenerateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(59, 130, 246, 0.3)',
+    },
+    regenerateText: {
+        color: '#3B82F6',
+        fontSize: 13,
+        fontWeight: '500',
+    },
+    chapterCard: {
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    chapterLeft: {
+        flex: 1,
+        flexDirection: 'row',
+        gap: 12,
+    },
+    chapterNumber: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#3B82F6',
+    },
+    chapterNumberText: {
+        color: '#3B82F6',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    chapterInfo: {
+        flex: 1,
+    },
+    chapterTimestamp: {
+        fontSize: 12,
+        color: '#3B82F6',
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    chapterTitle: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#fff',
+        marginBottom: 4,
+    },
+    chapterSummary: {
+        fontSize: 13,
+        color: '#9CA3AF',
+        lineHeight: 18,
     },
 });
