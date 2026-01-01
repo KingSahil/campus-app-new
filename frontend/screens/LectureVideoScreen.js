@@ -68,7 +68,7 @@ export default function LectureVideoScreen({ navigation, route }) {
     const [replyText, setReplyText] = useState('');
     const [expandedThreads, setExpandedThreads] = useState({});
     
-    // AI Summarizer states
+    // Ask AI states
     const [userQuestion, setUserQuestion] = useState('');
     const [summary, setSummary] = useState('')
     const [loadingSummary, setLoadingSummary] = useState(false);
@@ -94,6 +94,7 @@ export default function LectureVideoScreen({ navigation, route }) {
         fetchUpvotes();
         fetchDiscussions();
         fetchSavedChapters();
+        fetchSavedQuiz();
     }, []);
 
     const getUserInfo = async () => {
@@ -194,6 +195,15 @@ export default function LectureVideoScreen({ navigation, route }) {
 
         setLoadingSummary(true);
         try {
+            // Check if we have a cached answer for this question
+            const cachedAnswer = await fetchSavedAIQuestions(userQuestion.trim());
+            if (cachedAnswer && cachedAnswer.answer) {
+                setSummary(cachedAnswer.answer);
+                console.log('Loaded cached AI answer from database');
+                setLoadingSummary(false);
+                return;
+            }
+
             // Get backend URL
             const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.14:8000';
             
@@ -219,6 +229,8 @@ export default function LectureVideoScreen({ navigation, route }) {
             
             if (data.answer) {
                 setSummary(data.answer);
+                // Save to database
+                await saveAIQuestionToDatabase(userQuestion, data.answer);
             } else {
                 Alert.alert('Error', 'No answer generated. Please try again.');
             }
@@ -227,6 +239,58 @@ export default function LectureVideoScreen({ navigation, route }) {
             Alert.alert('Error', 'Failed to generate answer: ' + error.message);
         } finally {
             setLoadingSummary(false);
+        }
+    };
+
+    const saveAIQuestionToDatabase = async (question, answer) => {
+        if (!video.id) return;
+        
+        try {
+            const { error } = await supabase
+                .from('video_ai_questions')
+                .upsert({
+                    video_id: video.id,
+                    question: question,
+                    answer: answer,
+                    updated_at: new Date().toISOString()
+                }, {
+                    onConflict: 'video_id,question'
+                });
+
+            if (error) {
+                console.error('Error saving AI Q&A:', error);
+            } else {
+                console.log('AI Q&A saved to database');
+            }
+        } catch (error) {
+            console.error('Error saving AI Q&A:', error);
+        }
+    };
+
+    const fetchSavedAIQuestions = async (question) => {
+        if (!video.id) return null;
+        
+        try {
+            const { data, error } = await supabase
+                .from('video_ai_questions')
+                .select('*')
+                .eq('video_id', video.id)
+                .eq('question', question)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            if (error) {
+                if (error.code !== 'PGRST116') { // Not found error
+                    console.error('Error fetching saved AI Q&A:', error);
+                }
+                return null;
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Error loading AI Q&A:', error);
+            return null;
         }
     };
 
@@ -341,6 +405,8 @@ export default function LectureVideoScreen({ navigation, route }) {
                 setQuiz(data.quiz);
                 setSelectedAnswers({});
                 setShowResults(false);
+                // Save to database
+                await saveQuizToDatabase(data.quiz);
             } else {
                 Alert.alert('Error', 'Invalid quiz format received');
             }
@@ -349,6 +415,58 @@ export default function LectureVideoScreen({ navigation, route }) {
             Alert.alert('Error', 'Failed to generate quiz: ' + error.message);
         } finally {
             setLoadingQuiz(false);
+        }
+    };
+
+    const saveQuizToDatabase = async (quizData) => {
+        if (!video.id) return;
+        
+        try {
+            const { error } = await supabase
+                .from('video_quizzes')
+                .upsert({
+                    video_id: video.id,
+                    quiz_data: quizData,
+                    updated_at: new Date().toISOString()
+                }, {
+                    onConflict: 'video_id'
+                });
+
+            if (error) {
+                console.error('Error saving quiz:', error);
+            } else {
+                console.log('Quiz saved to database');
+            }
+        } catch (error) {
+            console.error('Error saving quiz:', error);
+        }
+    };
+
+    const fetchSavedQuiz = async () => {
+        if (!video.id) return;
+        
+        try {
+            const { data, error } = await supabase
+                .from('video_quizzes')
+                .select('*')
+                .eq('video_id', video.id)
+                .single();
+
+            if (error) {
+                if (error.code !== 'PGRST116') { // Not found error
+                    console.error('Error fetching saved quiz:', error);
+                }
+                return;
+            }
+
+            if (data && data.quiz_data) {
+                setQuiz(data.quiz_data);
+                setSelectedAnswers({});
+                setShowResults(false);
+                console.log('Loaded saved quiz from database');
+            }
+        } catch (error) {
+            console.error('Error loading quiz:', error);
         }
     };
 
@@ -746,7 +864,7 @@ export default function LectureVideoScreen({ navigation, route }) {
             case 'ai':
                 return (
                     <View style={styles.tabContent}>
-                        <Text style={styles.sectionTitle}>AI Summarizer</Text>
+                        <Text style={styles.sectionTitle}>Ask AI</Text>
                         <View style={styles.aiCard}>
                             <MaterialIcons name="auto-awesome" size={32} color="#8B5CF6" />
                             <Text style={styles.aiText}>
@@ -1064,7 +1182,7 @@ export default function LectureVideoScreen({ navigation, route }) {
                             color={activeTab === 'ai' ? '#3B82F6' : '#9CA3AF'}
                         />
                         <Text style={[styles.tabText, activeTab === 'ai' && styles.activeTabText]}>
-                            AI Summarizer
+                            Ask AI
                         </Text>
                     </TouchableOpacity>
 

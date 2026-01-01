@@ -89,21 +89,25 @@ def format_timestamp(seconds: float) -> str:
         return f"{hours:02d}:{minutes:02d}:{secs:02d}"
     return f"{minutes:02d}:{secs:02d}"
 
-async def call_openrouter(transcript_text: str, model: str) -> dict:
+async def call_openrouter(transcript_text: str, model: str, video_duration: str = None, video_duration_seconds: float = None) -> dict:
     """Call OpenRouter API to generate chapters and summary"""
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
     
+    duration_info = f"\nVideo Duration: {video_duration} (max {int(video_duration_seconds)} seconds)" if video_duration else ""
+    
     prompt = f"""You are a helpful assistant that analyzes YouTube video transcripts and creates structured chapters with summaries.
+{duration_info}
 
-Given the following video transcript with timestamps, please:
-1. Identify major topic changes and create chapters
-2. For each chapter, provide:
-   - A timestamp (in seconds) where the chapter starts
-   - A descriptive title
-   - A brief summary (2-3 sentences)
-3. Create an overall video summary (3-4 sentences)
+Given the following video transcript with timestamps in [MM:SS] or [HH:MM:SS] format, please:
+1. Identify major topic changes and create 5-8 chapters
+2. For each chapter, YOU MUST extract the EXACT timestamp_seconds from the [HH:MM:SS] or [MM:SS] markers in the transcript
+3. Parse the timestamps like this: [00:45] = 45 seconds, [02:30] = 150 seconds, [01:15:20] = 4520 seconds
+4. CRITICAL: All timestamp_seconds MUST be between 0 and {int(video_duration_seconds)} (the video duration)
+5. Use timestamps that actually appear in the transcript - do NOT make up timestamps
+6. Provide a descriptive title and brief summary (2-3 sentences) for each chapter
+7. Create an overall video summary (3-4 sentences)
 
 Transcript:
 {transcript_text}
@@ -177,7 +181,7 @@ Please respond in the following JSON format:
         except (KeyError, json.JSONDecodeError) as e:
             raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
 
-async def call_gemini(transcript_text: str, model: str = "gemini-2.0-flash-exp") -> dict:
+async def call_gemini(transcript_text: str, model: str = "gemini-2.0-flash-exp", video_duration: str = None, video_duration_seconds: float = None) -> dict:
     """Call Google Gemini API to generate chapters and summary"""
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -187,16 +191,19 @@ async def call_gemini(transcript_text: str, model: str = "gemini-2.0-flash-exp")
         # Create Gemini client
         client = genai.Client(api_key=api_key)
         
+        duration_info = f"\nVideo Duration: {video_duration} (max {int(video_duration_seconds)} seconds)" if video_duration else ""
+        
         prompt = f"""You are a helpful assistant that analyzes YouTube video transcripts and creates structured chapters with summaries.
+{duration_info}
 
 Given the following video transcript with timestamps in [MM:SS] or [HH:MM:SS] format, please:
 1. Identify major topic changes and create 5-8 chapters
-2. For each chapter, YOU MUST use the EXACT timestamp from the transcript where that topic begins
-3. Extract the timestamp in seconds from the [timestamp] markers in the transcript
-4. Provide a descriptive title and brief summary (2-3 sentences) for each chapter
-5. Create an overall video summary (3-4 sentences)
-
-IMPORTANT: Use ONLY the timestamps that appear in the transcript. Do NOT make up or estimate timestamps.
+2. For each chapter, YOU MUST extract the EXACT timestamp_seconds from the [HH:MM:SS] or [MM:SS] markers in the transcript
+3. Parse the timestamps like this: [00:45] = 45 seconds, [02:30] = 150 seconds, [01:15:20] = 4520 seconds
+4. CRITICAL: All timestamp_seconds MUST be between 0 and {int(video_duration_seconds)} (the video duration)
+5. Use timestamps that actually appear in the transcript - do NOT make up timestamps
+6. Provide a descriptive title and brief summary (2-3 sentences) for each chapter
+7. Create an overall video summary (3-4 sentences)
 
 Transcript:
 {transcript_text}
@@ -283,6 +290,10 @@ async def analyze_video(request: VideoRequest):
             for snippet in fetched_transcript.snippets
         ])
         
+        # Get video duration from last timestamp
+        video_duration_seconds = fetched_transcript.snippets[-1].start if fetched_transcript.snippets else 0
+        video_duration_formatted = format_timestamp(video_duration_seconds)
+        
         # Get AI analysis with automatic fallback
         ai_response = None
         used_provider = request.api_provider or "gemini"
@@ -290,7 +301,12 @@ async def analyze_video(request: VideoRequest):
         # Try Gemini first (if requested or as default)
         if used_provider == "gemini":
             try:
-                ai_response = await call_gemini(transcript_text, request.model or "gemini-2.0-flash-exp")
+                ai_response = await call_gemini(
+                    transcript_text, 
+                    request.model or "gemini-2.0-flash-exp",
+                    video_duration_formatted,
+                    video_duration_seconds
+                )
             except HTTPException as e:
                 # Check if it's a quota/rate limit error (429)
                 if "429" in str(e.detail) or "RESOURCE_EXHAUSTED" in str(e.detail) or "quota" in str(e.detail).lower():
@@ -298,7 +314,12 @@ async def analyze_video(request: VideoRequest):
                     # Check if OpenRouter is available
                     if os.getenv("OPENROUTER_API_KEY"):
                         try:
-                            ai_response = await call_openrouter(transcript_text, "anthropic/claude-3-haiku")
+                            ai_response = await call_openrouter(
+                                transcript_text, 
+                                "anthropic/claude-3-haiku",
+                                video_duration_formatted,
+                                video_duration_seconds
+                            )
                             used_provider = "openrouter (fallback)"
                             print(f"✓ Successfully used OpenRouter as fallback")
                         except Exception as fallback_error:
@@ -316,7 +337,12 @@ async def analyze_video(request: VideoRequest):
                     raise
         else:
             # Use OpenRouter directly if requested
-            ai_response = await call_openrouter(transcript_text, request.model or "anthropic/claude-3-haiku")
+            ai_response = await call_openrouter(
+                transcript_text, 
+                request.model or "anthropic/claude-3-haiku",
+                video_duration_formatted,
+                video_duration_seconds
+            )
         
         # Format chapters
         chapters = [
