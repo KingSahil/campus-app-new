@@ -194,46 +194,37 @@ export default function LectureVideoScreen({ navigation, route }) {
 
         setLoadingSummary(true);
         try {
-            const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+            // Get backend URL
+            const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.14:8000';
             
-            if (!apiKey) {
-                Alert.alert('Error', 'Gemini API key not configured. Please add EXPO_PUBLIC_GEMINI_API_KEY to your .env file');
-                setLoadingSummary(false);
-                return;
-            }
+            const response = await fetch(`${BACKEND_URL}/ai-question`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    video_url: video.url,
+                    video_title: video.title,
+                    question: userQuestion,
+                    api_provider: 'gemini'
+                }),
+            });
 
-            const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [{
-                                text: `The student is watching the video titled "${video.title}" and asks: "${userQuestion}". Provide a detailed explanation and answer to their question. Include relevant concepts, formulas, definitions, and examples. Format the response with clear headings and bullet points.`
-                            }]
-                        }]
-                    })
-                }
-            );
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `Server error: ${response.status}`);
+            }
 
             const data = await response.json();
             
-            // Check for API errors
-            if (data.error) {
-                Alert.alert('API Error', data.error.message || 'Failed to generate summary');
-                return;
-            }
-            
-            if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-                setSummary(data.candidates[0].content.parts[0].text);
+            if (data.answer) {
+                setSummary(data.answer);
             } else {
-                console.log('API Response:', JSON.stringify(data, null, 2));
-                Alert.alert('Error', 'No summary generated. Please try again.');
+                Alert.alert('Error', 'No answer generated. Please try again.');
             }
         } catch (error) {
             console.error('Summary Error:', error);
-            Alert.alert('Error', 'Failed to generate summary: ' + error.message);
+            Alert.alert('Error', 'Failed to generate answer: ' + error.message);
         } finally {
             setLoadingSummary(false);
         }
@@ -324,47 +315,37 @@ export default function LectureVideoScreen({ navigation, route }) {
     const generateQuiz = async () => {
         setLoadingQuiz(true);
         try {
-            const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-            const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [{
-                                text: `Generate a quiz with 5 multiple-choice questions based on the video titled "${video.title}". Each question should have 4 options (A, B, C, D) and indicate the correct answer. Format as JSON array with structure: [{"question": "...", "options": ["A) ...", "B) ...", "C) ...", "D) ..."], "correct": "A"}]. Only return valid JSON, no additional text.`
-                            }]
-                        }]
-                    })
-                }
-            );
+            // Get backend URL
+            const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.14:8000';
+            
+            const response = await fetch(`${BACKEND_URL}/generate-quiz`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    video_url: video.url,
+                    video_title: video.title,
+                    api_provider: 'gemini'
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `Server error: ${response.status}`);
+            }
 
             const data = await response.json();
-            if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-                const text = data.candidates[0].content.parts[0].text;
-                
-                // Remove markdown code blocks if present
-                const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-                
-                // Try to extract JSON array
-                const jsonMatch = cleanedText.match(/\[[\s\S]*\]/);
-                if (jsonMatch) {
-                    const quizData = JSON.parse(jsonMatch[0]);
-                    if (Array.isArray(quizData) && quizData.length > 0) {
-                        setQuiz(quizData);
-                        setSelectedAnswers({});
-                        setShowResults(false);
-                    } else {
-                        Alert.alert('Error', 'Invalid quiz format received');
-                    }
-                } else {
-                    Alert.alert('Error', 'Failed to parse quiz data. Please try again.');
-                }
+            
+            if (data.quiz && Array.isArray(data.quiz) && data.quiz.length > 0) {
+                setQuiz(data.quiz);
+                setSelectedAnswers({});
+                setShowResults(false);
             } else {
-                Alert.alert('Error', 'Failed to generate quiz. Please check your API key.');
+                Alert.alert('Error', 'Invalid quiz format received');
             }
         } catch (error) {
+            console.error('Quiz Error:', error);
             Alert.alert('Error', 'Failed to generate quiz: ' + error.message);
         } finally {
             setLoadingQuiz(false);

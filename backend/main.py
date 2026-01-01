@@ -36,6 +36,17 @@ class VideoRequest(BaseModel):
     languages: Optional[List[str]] = None  # e.g., ['hi', 'en', 'es']
     api_provider: Optional[str] = "openrouter"  # 'openrouter' or 'gemini'
 
+class AIQuestionRequest(BaseModel):
+    video_url: str
+    video_title: str
+    question: str
+    api_provider: Optional[str] = "gemini"  # 'openrouter' or 'gemini'
+
+class QuizRequest(BaseModel):
+    video_url: str
+    video_title: str
+    api_provider: Optional[str] = "gemini"  # 'openrouter' or 'gemini'
+
 class TranscriptSegment(BaseModel):
     text: str
     start: float
@@ -373,6 +384,295 @@ async def get_transcript(video_id: str):
         raise HTTPException(status_code=404, detail="No transcript found for this video")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+@app.post("/ai-question")
+async def answer_question(request: AIQuestionRequest):
+    """
+    Answer student questions about a video using AI based on the video transcript
+    """
+    try:
+        # Extract video ID and fetch transcript
+        video_id = extract_video_id(request.video_url)
+        
+        try:
+            fetched_transcript = YouTubeTranscriptApi().fetch(video_id, languages=['en'])
+        except NoTranscriptFound:
+            # Try to get any available transcript
+            transcript_list = YouTubeTranscriptApi().list(video_id)
+            first_transcript = next(iter(transcript_list), None)
+            if first_transcript:
+                fetched_transcript = first_transcript.fetch()
+            else:
+                raise HTTPException(status_code=404, detail="No transcript available for this video")
+        except TranscriptsDisabled:
+            raise HTTPException(status_code=404, detail="Transcripts are disabled for this video")
+        
+        # Format transcript for AI
+        transcript_text = " ".join([snippet.text for snippet in fetched_transcript.snippets])
+        
+        # Limit transcript length to avoid token limits (use first ~10000 characters)
+        if len(transcript_text) > 10000:
+            transcript_text = transcript_text[:10000] + "..."
+        
+        prompt = f"""You are an educational assistant helping students understand video content.
+
+Video Title: {request.video_title}
+
+Video Transcript:
+{transcript_text}
+
+Student Question: {request.question}
+
+Based on the video transcript above, provide a detailed answer to the student's question. Include:
+- Direct references to what was said in the video
+- Relevant concepts and definitions from the transcript
+- Formulas or steps mentioned (if applicable)
+- Examples from the video content
+- Clear explanations with headings and bullet points
+
+If the question cannot be answered from the transcript, politely explain that the information is not covered in this video."""
+
+        # Try Gemini first, fallback to OpenRouter on quota error
+        ai_response = None
+        used_provider = request.api_provider or "gemini"
+        
+        if used_provider == "gemini":
+            api_key = os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                raise HTTPException(status_code=500, detail="Gemini API key not configured")
+            
+            try:
+                client = genai.Client(api_key=api_key)
+                response = client.models.generate_content(
+                    model="gemini-2.0-flash-exp",
+                    contents=prompt
+                )
+                ai_response = response.text
+            except Exception as e:
+                # Check if it's a quota error
+                error_str = str(e)
+                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower():
+                    print(f"⚠️  Gemini quota exceeded for AI question, falling back to OpenRouter...")
+                    # Fallback to OpenRouter
+                    if os.getenv("OPENROUTER_API_KEY"):
+                        try:
+                            api_key = os.getenv("OPENROUTER_API_KEY")
+                            async with httpx.AsyncClient(timeout=60.0) as client:
+                                response = await client.post(
+                                    "https://openrouter.ai/api/v1/chat/completions",
+                                    headers={
+                                        "Authorization": f"Bearer {api_key}",
+                                        "Content-Type": "application/json"
+                                    },
+                                    json={
+                                        "model": "anthropic/claude-3-haiku",
+                                        "messages": [{"role": "user", "content": prompt}]
+                                    }
+                                )
+                                
+                                if response.is_success:
+                                    result = response.json()
+                                    ai_response = result["choices"][0]["message"]["content"]
+                                    used_provider = "openrouter (fallback)"
+                                    print(f"✓ Successfully used OpenRouter as fallback for AI question")
+                                else:
+                                    raise HTTPException(status_code=500, detail=f"OpenRouter fallback failed: {response.status_code}")
+                        except Exception as fallback_error:
+                            raise HTTPException(
+                                status_code=503,
+                                detail=f"Gemini quota exceeded and OpenRouter fallback failed: {str(fallback_error)}"
+                            )
+                    else:
+                        raise HTTPException(
+                            status_code=503,
+                            detail="Gemini quota exceeded. Please configure OPENROUTER_API_KEY for automatic fallback."
+                        )
+                else:
+                    # Re-raise if not a quota error
+                    raise HTTPException(status_code=500, detail=f"Gemini API error: {error_str}")
+        else:
+            # Use OpenRouter directly if specified
+            api_key = os.getenv("OPENROUTER_API_KEY")
+            if not api_key:
+                raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
+            
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "anthropic/claude-3-haiku",
+                        "messages": [{"role": "user", "content": prompt}]
+                    }
+                )
+                
+                if not response.is_success:
+                    raise HTTPException(status_code=500, detail=f"OpenRouter API error: {response.status_code}")
+                
+                result = response.json()
+                ai_response = result["choices"][0]["message"]["content"]
+        
+        # Return the response
+        print(f"✓ AI question answered using: {used_provider}")
+        return {"answer": ai_response}
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate answer: {str(e)}")
+
+@app.post("/generate-quiz")
+async def generate_quiz(request: QuizRequest):
+    """
+    Generate a quiz based on actual video transcript content
+    """
+    try:
+        # Extract video ID and fetch transcript
+        video_id = extract_video_id(request.video_url)
+        
+        try:
+            fetched_transcript = YouTubeTranscriptApi().fetch(video_id, languages=['en'])
+        except NoTranscriptFound:
+            # Try to get any available transcript
+            transcript_list = YouTubeTranscriptApi().list(video_id)
+            first_transcript = next(iter(transcript_list), None)
+            if first_transcript:
+                fetched_transcript = first_transcript.fetch()
+            else:
+                raise HTTPException(status_code=404, detail="No transcript available for this video")
+        except TranscriptsDisabled:
+            raise HTTPException(status_code=404, detail="Transcripts are disabled for this video")
+        
+        # Format transcript for AI
+        transcript_text = " ".join([snippet.text for snippet in fetched_transcript.snippets])
+        
+        # Limit transcript length to avoid token limits
+        if len(transcript_text) > 8000:
+            transcript_text = transcript_text[:8000] + "..."
+        
+        prompt = f"""Based on the following video transcript, generate a quiz with 5 multiple-choice questions.
+
+Video Title: {request.video_title}
+
+Video Transcript:
+{transcript_text}
+
+Create questions that:
+- Test understanding of KEY CONCEPTS actually discussed in the video
+- Cover different parts of the video content
+- Have 4 options (A, B, C, D) where only one is correct
+- Include the correct answer
+
+Return ONLY a JSON array with this exact structure (no additional text):
+[
+  {{
+    "question": "What is...",
+    "options": ["A) First option", "B) Second option", "C) Third option", "D) Fourth option"],
+    "correct": "A"
+  }}
+]"""
+
+        # Try Gemini first, fallback to OpenRouter on quota error
+        quiz_data = None
+        used_provider = request.api_provider or "gemini"
+        
+        if used_provider == "gemini":
+            api_key = os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                raise HTTPException(status_code=500, detail="Gemini API key not configured")
+            
+            try:
+                client = genai.Client(api_key=api_key)
+                response = client.models.generate_content(
+                    model="gemini-2.0-flash-exp",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json"
+                    )
+                )
+                quiz_data = json.loads(response.text)
+            except Exception as e:
+                # Check if it's a quota error
+                error_str = str(e)
+                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower():
+                    print(f"⚠️  Gemini quota exceeded for quiz generation, falling back to OpenRouter...")
+                    # Fallback to OpenRouter
+                    if os.getenv("OPENROUTER_API_KEY"):
+                        try:
+                            api_key = os.getenv("OPENROUTER_API_KEY")
+                            async with httpx.AsyncClient(timeout=60.0) as client:
+                                response = await client.post(
+                                    "https://openrouter.ai/api/v1/chat/completions",
+                                    headers={
+                                        "Authorization": f"Bearer {api_key}",
+                                        "Content-Type": "application/json"
+                                    },
+                                    json={
+                                        "model": "anthropic/claude-3-haiku",
+                                        "messages": [{"role": "user", "content": prompt}],
+                                        "response_format": {"type": "json_object"}
+                                    }
+                                )
+                                
+                                if response.is_success:
+                                    result = response.json()
+                                    quiz_text = result["choices"][0]["message"]["content"]
+                                    quiz_data = json.loads(quiz_text)
+                                    used_provider = "openrouter (fallback)"
+                                    print(f"✓ Successfully used OpenRouter as fallback for quiz generation")
+                                else:
+                                    raise HTTPException(status_code=500, detail=f"OpenRouter fallback failed: {response.status_code}")
+                        except Exception as fallback_error:
+                            raise HTTPException(
+                                status_code=503,
+                                detail=f"Gemini quota exceeded and OpenRouter fallback failed: {str(fallback_error)}"
+                            )
+                    else:
+                        raise HTTPException(
+                            status_code=503,
+                            detail="Gemini quota exceeded. Please configure OPENROUTER_API_KEY for automatic fallback."
+                        )
+                else:
+                    # Re-raise if not a quota error
+                    raise HTTPException(status_code=500, detail=f"Gemini API error: {error_str}")
+        else:
+            # Use OpenRouter directly if specified
+            api_key = os.getenv("OPENROUTER_API_KEY")
+            if not api_key:
+                raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
+            
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "anthropic/claude-3-haiku",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "response_format": {"type": "json_object"}
+                    }
+                )
+                
+                if not response.is_success:
+                    raise HTTPException(status_code=500, detail=f"OpenRouter API error: {response.status_code}")
+                
+                result = response.json()
+                quiz_text = result["choices"][0]["message"]["content"]
+                quiz_data = json.loads(quiz_text)
+        
+        # Return the quiz
+        print(f"✓ Quiz generated using: {used_provider}")
+        return {"quiz": quiz_data}
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate quiz: {str(e)}")
 
 @app.get("/health")
 async def health_check():
