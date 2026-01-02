@@ -18,7 +18,20 @@ export default function ProfileEnterScreen({ navigation, route }) {
         phoneNumber: '',
     });
 
-    const { image } = route.params || {};
+    const { image, existingProfile, userData } = route.params || {};
+
+    useEffect(() => {
+        // Load existing profile data if available
+        if (existingProfile) {
+            setFormData({
+                fullName: existingProfile.full_name || '',
+                department: existingProfile.department || '',
+                course: existingProfile.course || '',
+                semester: existingProfile.semester || '',
+                phoneNumber: existingProfile.phone_number || '',
+            });
+        }
+    }, [existingProfile]);
 
     useEffect(() => {
         if (image) {

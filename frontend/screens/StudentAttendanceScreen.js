@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { auth0 } from '../lib/auth0';
-import BottomNav from '../components/BottomNav';
 
 // Helper function to generate a consistent UUID from a string
 const generateUUIDFromString = (str) => {
@@ -300,8 +299,6 @@ export default function StudentAttendanceScreen({ navigation }) {
                         </View>
                     </View>
                 </ScrollView>
-                
-                <BottomNav activeTab="Attendance" />
             </SafeAreaView>
         </View>
     );

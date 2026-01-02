@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, TextInput, ActivityIndicator, Alert, Platform } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Dimensions, TextInput, ActivityIndicator, Alert, Platform, KeyboardAvoidingView, Keyboard } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { supabase } from '../lib/supabase';
 import { auth0 } from '../lib/auth0';
-import BottomNav from '../components/BottomNav';
 import Constants from 'expo-constants';
 
 const { width } = Dimensions.get('window');
@@ -49,7 +49,7 @@ function DirectVideoPlayer({ videoUrl, onTimeUpdate }) {
 
 export default function LectureVideoScreen({ navigation, route }) {
     const { video } = route.params;
-    const [activeTab, setActiveTab] = useState('upvotes');
+    const [activeTab, setActiveTab] = useState('discussion');
     const videoRef = useRef(null);
     const youtubePlayerRef = useRef(null);
     const [currentTime, setCurrentTime] = useState(0);
@@ -85,6 +85,9 @@ export default function LectureVideoScreen({ navigation, route }) {
     const [selectedAnswers, setSelectedAnswers] = useState({});
     const [showResults, setShowResults] = useState(false);
     
+    // Keyboard state
+    const [keyboardVisible, setKeyboardVisible] = useState(false);
+    
     // Check if the video is a YouTube video
     const youtubeVideoId = getYouTubeVideoId(video.url);
     const isYouTubeVideo = youtubeVideoId !== null;
@@ -95,6 +98,21 @@ export default function LectureVideoScreen({ navigation, route }) {
         fetchDiscussions();
         fetchSavedChapters();
         fetchSavedQuiz();
+        
+        // Keyboard listeners
+        const keyboardDidShowListener = Keyboard.addListener(
+            'keyboardDidShow',
+            () => setKeyboardVisible(true)
+        );
+        const keyboardDidHideListener = Keyboard.addListener(
+            'keyboardDidHide',
+            () => setKeyboardVisible(false)
+        );
+        
+        return () => {
+            keyboardDidShowListener.remove();
+            keyboardDidHideListener.remove();
+        };
     }, []);
 
     const getUserInfo = async () => {
@@ -193,6 +211,7 @@ export default function LectureVideoScreen({ navigation, route }) {
             return;
         }
 
+        Keyboard.dismiss();
         setLoadingSummary(true);
         try {
             // Check if we have a cached answer for this question
@@ -548,6 +567,7 @@ export default function LectureVideoScreen({ navigation, route }) {
     const postMessage = async () => {
         if (!newMessage.trim() || !user) return;
 
+        Keyboard.dismiss();
         try {
             const { data, error } = await supabase
                 .from('video_discussions')
@@ -576,6 +596,7 @@ export default function LectureVideoScreen({ navigation, route }) {
     const postReply = async (parentId) => {
         if (!replyText.trim() || !user) return;
 
+        Keyboard.dismiss();
         try {
             const { data, error } = await supabase
                 .from('video_discussions')
@@ -707,25 +728,6 @@ export default function LectureVideoScreen({ navigation, route }) {
             case 'discussion':
                 return (
                     <View style={styles.tabContent}>
-                        {/* New Message Input */}
-                        <View style={styles.newMessageContainer}>
-                            <TextInput
-                                style={styles.messageInput}
-                                placeholder="Ask a question or start a discussion..."
-                                placeholderTextColor="#6B7280"
-                                value={newMessage}
-                                onChangeText={setNewMessage}
-                                multiline
-                            />
-                            <TouchableOpacity
-                                style={[styles.sendButton, !newMessage.trim() && styles.sendButtonDisabled]}
-                                onPress={postMessage}
-                                disabled={!newMessage.trim()}
-                            >
-                                <MaterialIcons name="send" size={20} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
-
                         {/* Messages List */}
                         {loadingDiscussions ? (
                             <View style={styles.loadingContainer}>
@@ -816,45 +818,6 @@ export default function LectureVideoScreen({ navigation, route }) {
                                                 ))}
                                             </View>
                                         )}
-
-                                        {/* Reply Input */}
-                                        {replyingTo && (
-                                            <View style={styles.replyInputContainer}>
-                                                <View style={styles.replyLine} />
-                                                <View style={styles.replyInputBox}>
-                                                    <TextInput
-                                                        style={styles.replyInput}
-                                                        placeholder="Write a reply..."
-                                                        placeholderTextColor="#6B7280"
-                                                        value={replyText}
-                                                        onChangeText={setReplyText}
-                                                        multiline
-                                                        autoFocus
-                                                    />
-                                                    <View style={styles.replyActions}>
-                                                        <TouchableOpacity
-                                                            style={styles.cancelReplyButton}
-                                                            onPress={() => {
-                                                                setReplyTo(null);
-                                                                setReplyText('');
-                                                            }}
-                                                        >
-                                                            <Text style={styles.cancelReplyText}>Cancel</Text>
-                                                        </TouchableOpacity>
-                                                        <TouchableOpacity
-                                                            style={[
-                                                                styles.sendReplyButton,
-                                                                !replyText.trim() && styles.sendButtonDisabled
-                                                            ]}
-                                                            onPress={() => postReply(message.id)}
-                                                            disabled={!replyText.trim()}
-                                                        >
-                                                            <Text style={styles.sendReplyText}>Send</Text>
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                </View>
-                                            </View>
-                                        )}
                                     </View>
                                 );
                             })
@@ -865,37 +828,6 @@ export default function LectureVideoScreen({ navigation, route }) {
                 return (
                     <View style={styles.tabContent}>
                         <Text style={styles.sectionTitle}>Ask AI</Text>
-                        <View style={styles.aiCard}>
-                            <MaterialIcons name="auto-awesome" size={32} color="#8B5CF6" />
-                            <Text style={styles.aiText}>
-                                Ask AI anything about this video
-                            </Text>
-                            
-                            <View style={styles.questionInput}>
-                                <Text style={styles.inputLabel}>Your Question or Doubt</Text>
-                                <TextInput
-                                    style={[styles.input, styles.multilineInput]}
-                                    placeholder="What do you want to know about this video?"
-                                    placeholderTextColor="#6B7280"
-                                    value={userQuestion}
-                                    onChangeText={setUserQuestion}
-                                    multiline
-                                    numberOfLines={4}
-                                />
-                            </View>
-                            
-                            <TouchableOpacity 
-                                style={styles.aiButton}
-                                onPress={generateSummary}
-                                disabled={loadingSummary}
-                            >
-                                {loadingSummary ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.aiButtonText}>Generate Summary</Text>
-                                )}
-                            </TouchableOpacity>
-                        </View>
                         
                         {summary ? (
                             <View style={styles.summaryCard}>
@@ -904,7 +836,14 @@ export default function LectureVideoScreen({ navigation, route }) {
                                 </Text>
                                 <Text style={styles.summaryText}>{summary}</Text>
                             </View>
-                        ) : null}
+                        ) : (
+                            <View style={styles.aiCard}>
+                                <MaterialIcons name="auto-awesome" size={32} color="#8B5CF6" />
+                                <Text style={styles.aiText}>
+                                    Ask AI anything about this video and get instant answers
+                                </Text>
+                            </View>
+                        )}
                     </View>
                 );
             case 'chapters':
@@ -1092,8 +1031,13 @@ export default function LectureVideoScreen({ navigation, route }) {
     };
 
     return (
-        <View style={styles.container}>
-            <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView
+                style={styles.keyboardAvoid}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={0}
+                enabled={activeTab === 'discussion' || activeTab === 'ai'}
+            >
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity
@@ -1146,14 +1090,19 @@ export default function LectureVideoScreen({ navigation, route }) {
                 <View style={styles.tabsContainer}>
                     <TouchableOpacity
                         style={[styles.tab, activeTab === 'upvotes' && styles.activeTab]}
-                        onPress={() => setActiveTab('upvotes')}
+                        onPress={handleUpvote}
+                        disabled={loadingUpvote}
                     >
-                        <MaterialIcons
-                            name={hasUpvoted ? "thumb-up" : "thumb-up-off-alt"}
-                            size={24}
-                            color={activeTab === 'upvotes' ? '#3B82F6' : '#9CA3AF'}
-                        />
-                        <Text style={[styles.tabText, activeTab === 'upvotes' && styles.activeTabText]}>
+                        {loadingUpvote ? (
+                            <ActivityIndicator color="#3B82F6" size="small" />
+                        ) : (
+                            <MaterialIcons
+                                name={hasUpvoted ? "thumb-up" : "thumb-up-off-alt"}
+                                size={24}
+                                color={hasUpvoted ? '#3B82F6' : '#9CA3AF'}
+                            />
+                        )}
+                        <Text style={[styles.tabText, hasUpvoted && styles.activeTabText]}>
                             {upvoteCount.toLocaleString()} {upvoteCount === 1 ? 'Upvote' : 'Upvotes'}
                         </Text>
                     </TouchableOpacity>
@@ -1220,20 +1169,103 @@ export default function LectureVideoScreen({ navigation, route }) {
                     {renderTabContent()}
                 </ScrollView>
 
-                {/* Bottom Navigation */}
-                <BottomNav activeTab="Learning" />
-            </SafeAreaView>
-        </View>
+                {/* Fixed Input Bars */}
+                {activeTab === 'discussion' && !replyTo && (
+                    <View style={styles.fixedInputBar}>
+                        <View style={styles.inputRow}>
+                            <TextInput
+                                style={styles.fixedMessageInput}
+                                placeholder="Ask a question or start a discussion..."
+                                placeholderTextColor="#6B7280"
+                                value={newMessage}
+                                onChangeText={setNewMessage}
+                                multiline
+                            />
+                            <TouchableOpacity
+                                style={[styles.fixedSendButton, !newMessage.trim() && styles.sendButtonDisabled]}
+                                onPress={postMessage}
+                                disabled={!newMessage.trim()}
+                            >
+                                <MaterialIcons name="send" size={20} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+
+                {activeTab === 'discussion' && replyTo && (
+                    <View style={styles.fixedInputBar}>
+                        <View style={styles.replyIndicator}>
+                            <MaterialIcons name="reply" size={16} color="#3B82F6" />
+                            <Text style={styles.replyIndicatorText}>Replying...</Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setReplyTo(null);
+                                    setReplyText('');
+                                }}
+                                style={styles.cancelReplyIconButton}
+                            >
+                                <MaterialIcons name="close" size={16} color="#8E8E93" />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.inputRow}>
+                            <TextInput
+                                style={styles.fixedMessageInput}
+                                placeholder="Write a reply..."
+                                placeholderTextColor="#6B7280"
+                                value={replyText}
+                                onChangeText={setReplyText}
+                                multiline
+                                autoFocus
+                            />
+                            <TouchableOpacity
+                                style={[styles.fixedSendButton, !replyText.trim() && styles.sendButtonDisabled]}
+                                onPress={() => postReply(replyTo)}
+                                disabled={!replyText.trim()}
+                            >
+                                <MaterialIcons name="send" size={20} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+
+                {activeTab === 'ai' && (
+                    <View style={styles.fixedInputBar}>
+                        <View style={styles.inputRow}>
+                            <TextInput
+                                style={styles.fixedMessageInput}
+                                placeholder="Ask Anything!"
+                                placeholderTextColor="#6B7280"
+                                value={userQuestion}
+                                onChangeText={setUserQuestion}
+                                multiline
+                            />
+                            <TouchableOpacity
+                                style={[styles.fixedSendButton, (!userQuestion.trim() || loadingSummary) && styles.sendButtonDisabled]}
+                                onPress={generateSummary}
+                                disabled={!userQuestion.trim() || loadingSummary}
+                            >
+                                {loadingSummary ? (
+                                    <ActivityIndicator color="#fff" size="small" />
+                                ) : (
+                                    <MaterialIcons name="auto-awesome" size={20} color="#fff" />
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#111827',
+        backgroundColor: '#1F2937',
     },
-    safeArea: {
+    keyboardAvoid: {
         flex: 1,
+        backgroundColor: '#111827',
     },
     header: {
         flexDirection: 'row',
@@ -1442,6 +1474,36 @@ const styles = StyleSheet.create({
     multilineInput: {
         minHeight: 80,
         textAlignVertical: 'top',
+    },
+    multilineInputCompact: {
+        minHeight: 50,
+    },
+    aiCardCompact: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+    },
+    aiInputContainer: {
+        marginTop: 16,
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(139, 92, 246, 0.3)',
+        borderRadius: 16,
+        padding: 16,
+    },
+    aiInputContainerKeyboard: {
+        marginTop: 0,
+        backgroundColor: '#1F2937',
+        borderTopWidth: 2,
+        borderLeftWidth: 0,
+        borderRightWidth: 0,
+        borderBottomWidth: 0,
+        borderTopColor: 'rgba(139, 92, 246, 0.5)',
+        borderRadius: 0,
+        padding: 16,
+        paddingBottom: Platform.OS === 'ios' ? 20 : 16,
+    },
+    contentContainerKeyboard: {
+        paddingBottom: 0,
     },
     summaryCard: {
         backgroundColor: 'rgba(139, 92, 246, 0.1)',
@@ -1938,5 +2000,53 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#9CA3AF',
         lineHeight: 18,
+    },
+    fixedInputBar: {
+        flexDirection: 'column',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: '#1F2937',
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.1)',
+    },
+    replyIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 8,
+    },
+    replyIndicatorText: {
+        flex: 1,
+        fontSize: 13,
+        color: '#3B82F6',
+        fontWeight: '500',
+    },
+    cancelReplyIconButton: {
+        padding: 4,
+    },
+    inputRow: {
+        flexDirection: 'row',
+        gap: 8,
+        alignItems: 'flex-end',
+    },
+    fixedMessageInput: {
+        flex: 1,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        color: '#fff',
+        fontSize: 14,
+        maxHeight: 100,
+    },
+    fixedSendButton: {
+        backgroundColor: '#3B82F6',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 });

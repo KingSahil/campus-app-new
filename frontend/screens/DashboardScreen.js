@@ -1,11 +1,10 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Platform, Image, Alert, ActivityIndicator, Modal } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Platform, Image, Alert, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { auth0 } from '../lib/auth0';
 import { supabase } from '../lib/supabase';
-import BottomNav from '../components/BottomNav';
 
 // Helper function to generate a consistent UUID from a string
 const generateUUIDFromString = (str) => {
@@ -23,15 +22,15 @@ const generateUUIDFromString = (str) => {
 
 // Campus location coordinates with high precision
 const CAMPUS_LOCATION = {
-    latitude: 13.054855548207236,
-    longitude: 80.07600107253903,
-    elevation: 21, // meters above sea level
+    latitude: 31.649174,
+    longitude: 74.818695,
+    elevation: 228, // meters above sea level
 };
 
 const ALLOWED_DISTANCE = 200 // meters - tightened for better accuracy
 const MAX_GPS_ACCURACY = 200; // Only accept GPS readings with accuracy better than 200 meters
-const LOCATION_SAMPLES = 2; // Number of location samples to average (reduced for speed)
-const SAMPLE_DELAY = 300; // Delay between samples in milliseconds (reduced for faster verification)
+const LOCATION_SAMPLES = 1; // Number of location samples to average (set to 1 for fast verification)
+const SAMPLE_DELAY = 0; // Delay between samples in milliseconds (no delay for single sample)
 
 // Vincenty formula for more accurate distance calculation (up to 0.5mm precision)
 // This is more accurate than Haversine for short distances
@@ -172,6 +171,10 @@ export default function DashboardScreen({ navigation }) {
     const [activeSessions, setActiveSessions] = React.useState([]);
     const [loadingSessions, setLoadingSessions] = React.useState(true);
     const [confirmModal, setConfirmModal] = React.useState({ visible: false, session: null, distance: 0, accuracy: 0 });
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [showSearchResults, setShowSearchResults] = useState(false);
+    const [searchLoading, setSearchLoading] = useState(false);
 
     useEffect(() => {
         getUserInfo();
@@ -192,6 +195,101 @@ export default function DashboardScreen({ navigation }) {
             setUser(userData);
         } catch (error) {
             console.log('Error getting user:', error);
+        }
+    };
+
+    const handleSearch = async (query) => {
+        setSearchQuery(query);
+        
+        if (!query.trim()) {
+            setShowSearchResults(false);
+            setSearchResults([]);
+            return;
+        }
+
+        setSearchLoading(true);
+        setShowSearchResults(true);
+
+        try {
+            const searchTerm = query.toLowerCase().trim();
+            const results = [];
+
+            // Search for subjects
+            const { data: subjects, error: subjectsError } = await supabase
+                .from('subjects')
+                .select('*')
+                .ilike('name', `%${searchTerm}%`);
+
+            if (subjects) {
+                subjects.forEach(subject => {
+                    results.push({
+                        type: 'subject',
+                        title: subject.name,
+                        subtitle: 'Subject',
+                        icon: 'book',
+                        action: () => {
+                            navigation.navigate('SubjectTopics', { subject });
+                            setShowSearchResults(false);
+                            setSearchQuery('');
+                        }
+                    });
+                });
+            }
+
+            // Search for videos (with topic and subject info)
+            const { data: videos, error: videosError } = await supabase
+                .from('videos')
+                .select('*, topics(name, subjects(name))')
+                .ilike('title', `%${searchTerm}%`);
+
+            if (videos) {
+                videos.forEach(video => {
+                    const subjectName = video.topics?.subjects?.name || 'Unknown Subject';
+                    const topicName = video.topics?.name || 'Unknown Topic';
+                    
+                    results.push({
+                        type: 'video',
+                        title: video.title,
+                        subtitle: `Video • ${subjectName} • ${topicName}`,
+                        icon: 'play-circle-outline',
+                        action: () => {
+                            navigation.navigate('LectureVideo', { video });
+                            setShowSearchResults(false);
+                            setSearchQuery('');
+                        }
+                    });
+                });
+            }
+
+            // Search for screens/tabs (static list)
+            const screens = [
+                { name: 'Learning Hub', screen: 'LearningHub', icon: 'school' },
+                { name: 'Notices', screen: 'Notices', icon: 'notifications' },
+                { name: 'Attendance', screen: 'StudentAttendance', icon: 'fact-check' },
+                { name: 'Profile', screen: 'ProfileDetail', icon: 'person' },
+            ];
+
+            screens.forEach(screen => {
+                if (screen.name.toLowerCase().includes(searchTerm)) {
+                    results.push({
+                        type: 'screen',
+                        title: screen.name,
+                        subtitle: 'Navigate to',
+                        icon: screen.icon,
+                        action: () => {
+                            navigation.navigate(screen.screen);
+                            setShowSearchResults(false);
+                            setSearchQuery('');
+                        }
+                    });
+                }
+            });
+
+            setSearchResults(results);
+        } catch (error) {
+            console.error('Search error:', error);
+        } finally {
+            setSearchLoading(false);
         }
     };
 
@@ -272,7 +370,7 @@ export default function DashboardScreen({ navigation }) {
             }
 
             // Show loading indicator
-            Alert.alert('Verifying Location', `Please wait while we get an accurate GPS reading...\n\nTaking up to ${LOCATION_SAMPLES} samples for best accuracy.`, [], { cancelable: false });
+            Alert.alert('Verifying Location', 'Getting your GPS location...');
 
             // Get highly accurate location with multiple samples
             const userLocation = await getAccurateLocation();
@@ -409,19 +507,89 @@ export default function DashboardScreen({ navigation }) {
                                     {user?.email ? `Welcome, ${user.email.split('@')[0]}!` : 'Welcome back!'}
                                 </Text>
                             </View>
-                            <TouchableOpacity 
-                                style={styles.profilePicContainer}
-                                onPress={() => navigation.navigate('ProfileDetail')}
-                            >
-                                <Image
-                                    source={{ 
-                                        uri: user?.picture || 
-                                        'https://lh3.googleusercontent.com/aida-public/AB6AXuC_UmOn2Ca2nFEDCfiijmx_SEi5EH7D2Y6catOJoHdc88XpwtWj5zuuQ5dwNK3a7Vj-26z0EWTwIWx9VZAGwkLntb__QkElZ01Us3OAPD9MqMORkDD0exnYBC5tsdW0CqAXJPvj5vQ2xXB5z23WE7ht34HAKNIQ2JaMajtyMPmUoBdGtODTxv_B148bL522wslFyfrgwmODlqI6XuD9T1Go9MhoAdT0_OCGvuW7aPDZeK-3c0mk5T1l3noLxaYZqL_N6G4BNePt4Xs' 
-                                    }}
-                                    style={styles.profilePic}
-                                />
-                            </TouchableOpacity>
+                            <View style={styles.headerButtons}>
+                                <TouchableOpacity 
+                                    style={styles.notificationButton}
+                                    onPress={() => navigation.navigate('Notices')}
+                                >
+                                    <MaterialIcons name="notifications" size={24} color="#ffffff" />
+                                </TouchableOpacity>
+                                <TouchableOpacity 
+                                    style={styles.profilePicContainer}
+                                    onPress={() => navigation.navigate('ProfileDetail')}
+                                >
+                                    <Image
+                                        source={{ 
+                                            uri: user?.picture || 
+                                            'https://lh3.googleusercontent.com/aida-public/AB6AXuC_UmOn2Ca2nFEDCfiijmx_SEi5EH7D2Y6catOJoHdc88XpwtWj5zuuQ5dwNK3a7Vj-26z0EWTwIWx9VZAGwkLntb__QkElZ01Us3OAPD9MqMORkDD0exnYBC5tsdW0CqAXJPvj5vQ2xXB5z23WE7ht34HAKNIQ2JaMajtyMPmUoBdGtODTxv_B148bL522wslFyfrgwmODlqI6XuD9T1Go9MhoAdT0_OCGvuW7aPDZeK-3c0mk5T1l3noLxaYZqL_N6G4BNePt4Xs' 
+                                        }}
+                                        style={styles.profilePic}
+                                    />
+                                </TouchableOpacity>
+                            </View>
                         </View>
+
+                        {/* Search Bar */}
+                        <View style={styles.searchContainer}>
+                            <MaterialIcons name="search" size={20} color="#8E8E93" style={styles.searchIcon} />
+                            <TextInput
+                                style={styles.searchInput}
+                                placeholder="Search videos, subjects, or pages..."
+                                placeholderTextColor="#8E8E93"
+                                value={searchQuery}
+                                onChangeText={handleSearch}
+                                returnKeyType="search"
+                            />
+                            {searchQuery.length > 0 && (
+                                <TouchableOpacity 
+                                    onPress={() => {
+                                        setSearchQuery('');
+                                        setShowSearchResults(false);
+                                        setSearchResults([]);
+                                    }}
+                                    style={styles.clearButton}
+                                >
+                                    <MaterialIcons name="close" size={20} color="#8E8E93" />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        {/* Search Results */}
+                        {showSearchResults && (
+                            <View style={styles.searchResultsContainer}>
+                                {searchLoading ? (
+                                    <View style={styles.searchLoadingContainer}>
+                                        <ActivityIndicator color="#0A84FF" />
+                                        <Text style={styles.searchLoadingText}>Searching...</Text>
+                                    </View>
+                                ) : searchResults.length === 0 ? (
+                                    <View style={styles.noResultsContainer}>
+                                        <MaterialIcons name="search-off" size={48} color="#8E8E93" />
+                                        <Text style={styles.noResultsText}>No results found</Text>
+                                        <Text style={styles.noResultsSubtext}>Try searching for something else</Text>
+                                    </View>
+                                ) : (
+                                    <ScrollView style={styles.searchResultsList} nestedScrollEnabled>
+                                        {searchResults.map((result, index) => (
+                                            <TouchableOpacity 
+                                                key={index}
+                                                style={styles.searchResultItem}
+                                                onPress={result.action}
+                                            >
+                                                <View style={styles.searchResultIcon}>
+                                                    <MaterialIcons name={result.icon} size={24} color="#0A84FF" />
+                                                </View>
+                                                <View style={styles.searchResultContent}>
+                                                    <Text style={styles.searchResultTitle}>{result.title}</Text>
+                                                    <Text style={styles.searchResultSubtitle}>{result.subtitle}</Text>
+                                                </View>
+                                                <MaterialIcons name="arrow-forward-ios" size={16} color="#8E8E93" />
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+                                )}
+                            </View>
+                        )}
 
                         {/* Active Attendance Sessions */}
                         <View style={styles.section}>
@@ -557,9 +725,6 @@ export default function DashboardScreen({ navigation }) {
                         </View>
                     </View>
                 </Modal>
-
-                {/* Bottom Navigation */}
-                <BottomNav activeTab="Dashboard" />
             </SafeAreaView>
         </View>
     );
@@ -600,6 +765,21 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 16,
         color: '#8E8E93',
+    },
+    headerButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    notificationButton: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.15)',
     },
     profilePicContainer: {
         width: 48,
@@ -849,5 +1029,92 @@ const styles = StyleSheet.create({
         color: '#ffffff',
         fontSize: 15,
         fontWeight: '600',
+    },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        marginTop: 16,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    searchIcon: {
+        marginRight: 8,
+    },
+    searchInput: {
+        flex: 1,
+        color: '#ffffff',
+        fontSize: 15,
+        paddingVertical: 12,
+    },
+    clearButton: {
+        padding: 4,
+    },
+    searchResultsContainer: {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 12,
+        marginBottom: 16,
+        maxHeight: 400,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    searchLoadingContainer: {
+        paddingVertical: 40,
+        alignItems: 'center',
+        gap: 12,
+    },
+    searchLoadingText: {
+        color: '#8E8E93',
+        fontSize: 14,
+    },
+    noResultsContainer: {
+        paddingVertical: 40,
+        alignItems: 'center',
+    },
+    noResultsText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#ffffff',
+        marginTop: 12,
+    },
+    noResultsSubtext: {
+        fontSize: 14,
+        color: '#8E8E93',
+        marginTop: 4,
+    },
+    searchResultsList: {
+        maxHeight: 400,
+    },
+    searchResultItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    },
+    searchResultIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(10, 132, 255, 0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    searchResultContent: {
+        flex: 1,
+    },
+    searchResultTitle: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#ffffff',
+        marginBottom: 2,
+    },
+    searchResultSubtitle: {
+        fontSize: 13,
+        color: '#8E8E93',
     },
 });

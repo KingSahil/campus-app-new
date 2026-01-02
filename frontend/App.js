@@ -3,6 +3,9 @@ import { StyleSheet, View, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useState, useEffect } from 'react';
+import { auth0 } from './lib/auth0';
+import { supabase } from './lib/supabase';
 
 import Background from './components/Background';
 import SignInScreen from './screens/SignInScreen';
@@ -49,6 +52,46 @@ const linking = {
 };
 
 export default function App() {
+  const [initialRoute, setInitialRoute] = useState('SignIn');
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    checkAuthState();
+  }, []);
+
+  const checkAuthState = async () => {
+    try {
+      const userInfo = await auth0.getUser();
+      const userData = userInfo?.data?.user || userInfo;
+      const userId = userData?.sub || userData?.email;
+
+      if (userId) {
+        // User is signed in, check their profile
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+
+        if (!profile || !profile.profile_completed) {
+          setInitialRoute('Profile');
+        } else if (!profile.onboarding_completed) {
+          setInitialRoute('GetStarted');
+        } else {
+          setInitialRoute(profile.role === 'instructor' ? 'AdminDashboard' : 'Dashboard');
+        }
+      }
+    } catch (error) {
+      console.log('No active session');
+    } finally {
+      setIsReady(true);
+    }
+  };
+
+  if (!isReady) {
+    return null; // Or a loading screen
+  }
+
   return (
     <SafeAreaProvider>      
       <View style={styles.container}>
@@ -63,7 +106,7 @@ export default function App() {
               contentStyle: { backgroundColor: Platform.OS === 'android' ? 'transparent' : 'black' },
               animation: 'fade', // Optional: nice transition
             }}
-            initialRouteName="SignIn"
+            initialRouteName={initialRoute}
           >
             <Stack.Screen name="SignIn" component={SignInScreen} />
             <Stack.Screen name="Profile" component={SignUpScreen} />

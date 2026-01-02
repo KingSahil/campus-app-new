@@ -3,7 +3,6 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, Modal, Tex
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getVideosByTopic, createVideo } from '../lib/learningHub';
-import BottomNav from '../components/BottomNav';
 import Background from '../components/Background';
 
 export default function VideosListScreen({ navigation, route }) {
@@ -135,9 +134,6 @@ export default function VideosListScreen({ navigation, route }) {
                         </View>
                     </View>
                 </ScrollView>
-
-                {/* Bottom Navigation */}
-                <BottomNav activeTab="Learning" />
 
                 {/* Add Video Modal */}
                 <Modal

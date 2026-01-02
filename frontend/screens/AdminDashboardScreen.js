@@ -2,7 +2,6 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import BottomNav from '../components/BottomNav';
 
 export default function AdminDashboardScreen({ navigation }) {
     const quickAccessItems = [
@@ -38,15 +37,23 @@ export default function AdminDashboardScreen({ navigation }) {
                                 <Text style={styles.title}>Admin Portal</Text>
                                 <Text style={styles.subtitle}>Welcome, Professor</Text>
                             </View>
-                            <TouchableOpacity 
-                                style={styles.profilePicContainer}
-                                onPress={() => navigation.navigate('ProfileDetail')}
-                            >
-                                <Image
-                                    source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC_UmOn2Ca2nFEDCfiijmx_SEi5EH7D2Y6catOJoHdc88XpwtWj5zuuQ5dwNK3a7Vj-26z0EWTwIWx9VZAGwkLntb__QkElZ01Us3OAPD9MqMORkDD0exnYBC5tsdW0CqAXJPvj5vQ2xXB5z23WE7ht34HAKNIQ2JaMajtyMPmUoBdGtODTxv_B148bL522wslFyfrgwmODlqI6XuD9T1Go9MhoAdT0_OCGvuW7aPDZeK-3c0mk5T1l3noLxaYZqL_N6G4BNePt4Xs' }}
-                                    style={styles.profilePic}
-                                />
-                            </TouchableOpacity>
+                            <View style={styles.headerButtons}>
+                                <TouchableOpacity 
+                                    style={styles.notificationButton}
+                                    onPress={() => navigation.navigate('Notices')}
+                                >
+                                    <MaterialIcons name="notifications" size={24} color="#ffffff" />
+                                </TouchableOpacity>
+                                <TouchableOpacity 
+                                    style={styles.profilePicContainer}
+                                    onPress={() => navigation.navigate('ProfileDetail')}
+                                >
+                                    <Image
+                                        source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC_UmOn2Ca2nFEDCfiijmx_SEi5EH7D2Y6catOJoHdc88XpwtWj5zuuQ5dwNK3a7Vj-26z0EWTwIWx9VZAGwkLntb__QkElZ01Us3OAPD9MqMORkDD0exnYBC5tsdW0CqAXJPvj5vQ2xXB5z23WE7ht34HAKNIQ2JaMajtyMPmUoBdGtODTxv_B148bL522wslFyfrgwmODlqI6XuD9T1Go9MhoAdT0_OCGvuW7aPDZeK-3c0mk5T1l3noLxaYZqL_N6G4BNePt4Xs' }}
+                                        style={styles.profilePic}
+                                    />
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
                         {/* Quick Access */}
@@ -68,9 +75,6 @@ export default function AdminDashboardScreen({ navigation }) {
                         </View>
                     </View>
                 </ScrollView>
-
-                {/* Bottom Navigation */}
-                <BottomNav activeTab="Dashboard" />
             </SafeAreaView>
         </View>
     );
@@ -109,6 +113,21 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 14,
         color: '#8E8E93',
+    },
+    headerButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    notificationButton: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.15)',
     },
     profilePicContainer: {
         width: 48,

@@ -67,7 +67,10 @@ export default function ProfileDetailScreen({ navigation }) {
     };
 
     const handleEditProfile = () => {
-        navigation.navigate('ProfileEnter');
+        navigation.navigate('ProfileEnter', { 
+            existingProfile: profile,
+            userData: user 
+        });
     };
 
     const getInitials = (name) => {
@@ -257,10 +260,11 @@ export default function ProfileDetailScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#111827',
+        backgroundColor: '#1F2937',
     },
     safeArea: {
         flex: 1,
+        backgroundColor: '#1F2937',
     },
     header: {
         flexDirection: 'row',
@@ -290,6 +294,7 @@ const styles = StyleSheet.create({
     },
     scrollView: {
         flex: 1,
+        backgroundColor: '#111827',
     },
     profileSection: {
         alignItems: 'center',

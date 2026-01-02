@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import BottomNav from '../components/BottomNav';
 
 const NoticesScreen = ({ navigation }) => {
   const urgentNotices = [
@@ -138,9 +137,6 @@ const NoticesScreen = ({ navigation }) => {
         {/* Bottom padding for navigation */}
         <View style={styles.bottomPadding} />
       </ScrollView>
-
-      {/* Bottom Navigation */}
-      <BottomNav activeTab="Notices" />
     </SafeAreaView>
   );
 };

@@ -3,7 +3,6 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Modal, TextInput,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getSubjects, createSubject } from '../lib/learningHub';
-import BottomNav from '../components/BottomNav';
 import Background from '../components/Background';
 
 export default function LearningHubScreen({ navigation }) {
@@ -115,9 +114,6 @@ export default function LearningHubScreen({ navigation }) {
                         </View>
                     </View>
                 </ScrollView>
-
-                {/* Bottom Navigation */}
-                <BottomNav activeTab="Learning" />
 
                 {/* Add Subject Modal */}
                 <Modal

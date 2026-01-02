@@ -106,12 +106,13 @@ export default function SignUpScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        // Background handled by parent, or we can overlay a gradient if needed specific to this screen
+        backgroundColor: '#0F172A',
     },
     safeArea: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: '#0F172A',
     },
     content: {
         width: '100%',
