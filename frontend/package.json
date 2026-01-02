@@ -32,6 +32,7 @@
     "react-dom": "latest",
     "react-native": "latest",
     "react-native-auth0": "^5.3.1",
+    "react-native-markdown-display": "^7.0.2",
     "react-native-safe-area-context": "latest",
     "react-native-screens": "latest",
     "react-native-svg": "latest",

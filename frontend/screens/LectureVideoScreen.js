@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import YoutubePlayer from 'react-native-youtube-iframe';
+import Markdown from 'react-native-markdown-display';
 import { supabase } from '../lib/supabase';
 import { auth0 } from '../lib/auth0';
 import Constants from 'expo-constants';
@@ -13,6 +14,14 @@ const { width } = Dimensions.get('window');
 // Helper function to extract YouTube video ID from URL
 const getYouTubeVideoId = (url) => {
     if (!url) return null;
+    
+    // YouTube Shorts URL: https://www.youtube.com/shorts/VIDEO_ID
+    const shortsMatch = url.match(/\/shorts\/([^?&]+)/);
+    if (shortsMatch && shortsMatch[1].length === 11) {
+        return shortsMatch[1];
+    }
+    
+    // Standard YouTube URLs
     const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*/;
     const match = url.match(regExp);
     return (match && match[7].length === 11) ? match[7] : null;
@@ -179,8 +188,20 @@ export default function LectureVideoScreen({ navigation, route }) {
 
                 if (error) throw error;
 
+                // Get current count from video_upvotes table
+                const { count } = await supabase
+                    .from('video_upvotes')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('video_id', videoId);
+
+                // Update the videos table with actual count
+                await supabase
+                    .from('videos')
+                    .update({ upvotes: count || 0 })
+                    .eq('id', video.id);
+
                 setHasUpvoted(false);
-                setUpvoteCount(prev => prev - 1);
+                setUpvoteCount(count || 0);
             } else {
                 // Add upvote
                 const { error } = await supabase
@@ -194,8 +215,20 @@ export default function LectureVideoScreen({ navigation, route }) {
 
                 if (error) throw error;
 
+                // Get current count from video_upvotes table
+                const { count } = await supabase
+                    .from('video_upvotes')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('video_id', videoId);
+
+                // Update the videos table with actual count
+                await supabase
+                    .from('videos')
+                    .update({ upvotes: count || 0 })
+                    .eq('id', video.id);
+
                 setHasUpvoted(true);
-                setUpvoteCount(prev => prev + 1);
+                setUpvoteCount(count || 0);
             }
         } catch (error) {
             console.error('Error toggling upvote:', error);
@@ -834,7 +867,22 @@ export default function LectureVideoScreen({ navigation, route }) {
                                 <Text style={styles.summaryTitle}>
                                     Answer
                                 </Text>
-                                <Text style={styles.summaryText}>{summary}</Text>
+                                <Markdown style={{
+                                    body: styles.summaryText,
+                                    heading1: { fontSize: 20, fontWeight: 'bold', color: '#fff', marginVertical: 8 },
+                                    heading2: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginVertical: 6 },
+                                    heading3: { fontSize: 16, fontWeight: 'bold', color: '#fff', marginVertical: 4 },
+                                    strong: { fontWeight: 'bold', color: '#fff' },
+                                    em: { fontStyle: 'italic', color: '#D1D5DB' },
+                                    code_inline: { backgroundColor: 'rgba(255,255,255,0.1)', color: '#8B5CF6', paddingHorizontal: 4, borderRadius: 4 },
+                                    code_block: { backgroundColor: 'rgba(255,255,255,0.1)', color: '#D1D5DB', padding: 12, borderRadius: 8, marginVertical: 8 },
+                                    fence: { backgroundColor: 'rgba(255,255,255,0.1)', color: '#D1D5DB', padding: 12, borderRadius: 8, marginVertical: 8 },
+                                    bullet_list: { color: '#D1D5DB' },
+                                    ordered_list: { color: '#D1D5DB' },
+                                    list_item: { color: '#D1D5DB', marginVertical: 2 },
+                                    blockquote: { backgroundColor: 'rgba(59, 130, 246, 0.1)', borderLeftColor: '#3B82F6', borderLeftWidth: 4, paddingLeft: 12, paddingVertical: 8, marginVertical: 8 },
+                                    link: { color: '#3B82F6' },
+                                }}>{summary}</Markdown>
                             </View>
                         ) : (
                             <View style={styles.aiCard}>

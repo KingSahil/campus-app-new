@@ -52,9 +52,12 @@ export default function SubjectTopicsScreen({ navigation, route }) {
             return;
         }
 
-        setTopics([data, ...topics]);
         setNewTopicName('');
         setModalVisible(false);
+        
+        // Reload topics to ensure fresh data from database
+        await loadTopics();
+        
         Alert.alert('Success', 'Topic added successfully!');
     };
 

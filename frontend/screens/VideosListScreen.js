@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, Modal, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { getVideosByTopic, createVideo } from '../lib/learningHub';
 import Background from '../components/Background';
 
@@ -18,6 +19,13 @@ export default function VideosListScreen({ navigation, route }) {
     useEffect(() => {
         loadVideos();
     }, []);
+
+    // Reload videos when screen comes into focus (e.g., after returning from video player)
+    useFocusEffect(
+        React.useCallback(() => {
+            loadVideos();
+        }, [topic?.id])
+    );
 
     const loadVideos = async () => {
         if (!topic?.id) return;
