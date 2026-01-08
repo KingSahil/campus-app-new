@@ -5,7 +5,7 @@
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                     Campus App Frontend                      │
-│                      (React Native)                           │
+│                      (React Native)                          │
 └───────────────────────────┬──────────────────────────────────┘
                             │
                             │ HTTP POST /analyze
@@ -13,14 +13,14 @@
                             │
                             ▼
 ┌──────────────────────────────────────────────────────────────┐
-│                    Backend API Server                         │
-│                       (FastAPI)                               │
+│                    Backend API Server                        │
+│                       (FastAPI)                              │
 │  ┌────────────────────────────────────────────────────────┐  │
 │  │  1. Receive video URL                                  │  │
 │  │  2. Extract YouTube video ID                           │  │
 │  │  3. Fetch transcript from YouTube                      │  │
 │  │  4. Format transcript with timestamps                  │  │
-│  │  5. Send to AI for analysis                           │  │
+│  │  5. Send to AI for analysis                            │  │
 │  │  6. Parse AI response                                  │  │
 │  │  7. Return chapters + summary                          │  │
 │  └────────────────────────────────────────────────────────┘  │
@@ -358,7 +358,7 @@ Backend
 └── pydantic
 
 AI Services
-├── Google Gemini (gemini-2.0-flash-exp)
+├── Google Gemini (gemini-3.0-flash-exp)
 └── OpenRouter (claude-3.5-sonnet)
 ```
 
