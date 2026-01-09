@@ -41,8 +41,6 @@ yarn-error.*
 /android
 
 
-# add this folder stitch_digital_cr_hub
-/stitch_digital_cr_hub
 .env
 
 .kiro/
