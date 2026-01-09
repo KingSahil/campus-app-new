@@ -256,8 +256,8 @@ export default function LectureVideoScreen({ navigation, route }) {
                 return;
             }
 
-            // Get backend URL
-            const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.14:8000';
+            // Get backend URL from environment variable
+            const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
             
             const response = await fetch(`${BACKEND_URL}/ai-question`, {
                 method: 'POST',
@@ -354,27 +354,8 @@ export default function LectureVideoScreen({ navigation, route }) {
 
         setLoadingChapters(true);
         try {
-            // Get backend URL with platform-specific handling
-            let BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
-            
-            // If no env variable set, use platform-specific defaults
-            if (!BACKEND_URL) {
-                if (Platform.OS === 'android') {
-                    // Android emulator uses 10.0.2.2 to access host machine's localhost
-                    BACKEND_URL = 'http://10.0.2.2:8000';
-                } else if (Platform.OS === 'ios') {
-                    // iOS simulator can use localhost
-                    BACKEND_URL = 'http://localhost:8000';
-                } else if (Platform.OS === 'web') {
-                    // Web can use localhost
-                    BACKEND_URL = 'http://localhost:8000';
-                } else {
-                    // For physical devices, you need to use your computer's IP address
-                    // Find your IP: Windows (ipconfig), Mac/Linux (ifconfig)
-                    // Replace with your actual IP address
-                    BACKEND_URL = 'http://localhost:8000';
-                }
-            }
+            // Get backend URL from environment variable
+            const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
             
             console.log('Using backend URL:', BACKEND_URL);
             
@@ -431,8 +412,8 @@ export default function LectureVideoScreen({ navigation, route }) {
     const generateQuiz = async () => {
         setLoadingQuiz(true);
         try {
-            // Get backend URL
-            const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.14:8000';
+            // Get backend URL from environment variable
+            const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
             
             const response = await fetch(`${BACKEND_URL}/generate-quiz`, {
                 method: 'POST',

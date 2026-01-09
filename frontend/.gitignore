@@ -42,5 +42,10 @@ yarn-error.*
 
 
 # add this folder stitch_digital_cr_hub
-/stitch_digital_cr_hu
+/stitch_digital_cr_hub
 .env
+
+.kiro/
+.vscode
+.idea/
+
