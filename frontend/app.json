@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "campus-app",
-    "slug": "campus-app",
+    "slug": "campusapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -55,8 +55,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "0d1c1736-90ce-4a71-9f48-3225285e973b"
+        "projectId": "e2793099-47a0-45f4-a6c4-f6a3fce890e3"
       }
-    }
+    },
+    "owner": "prosahil2150"
   }
 }
