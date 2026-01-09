@@ -45,13 +45,7 @@
     "plugins": [
       "expo-web-browser",
       "@react-native-community/datetimepicker",
-      "expo-font",
-      [
-        "react-native-auth0",
-        {
-          "domain": "supremesahil.us.auth0.com"
-        }
-      ]
+      "expo-font"
     ],
     "extra": {
       "eas": {
