@@ -29,7 +29,8 @@
           "data": [
             {
               "scheme": "campusapp",
-              "host": "supremesahil.us.auth0.com"
+              "host": "supremesahil.us.auth0.com",
+              "path": "/callback"
             }
           ],
           "category": [

@@ -15,7 +15,10 @@ const useProxy = Platform.select({ web: false, default: true });
 export const auth0Config = {
     clientId: AUTH0_CLIENT_ID,
     domain: AUTH0_DOMAIN,
-    redirectUri: AuthSession.makeRedirectUri({ useProxy }),
+    redirectUri: AuthSession.makeRedirectUri({
+        scheme: "campusapp",
+        path: "/callback" 
+    }),
     scopes: ['openid', 'profile', 'email'],
 };
 
