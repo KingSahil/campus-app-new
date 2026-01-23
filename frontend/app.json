@@ -35,7 +35,10 @@
               "pathPrefix": "/android/com.prosahil2150.campusappnew/callback"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -45,6 +48,12 @@
       },
       "auth0Domain": "supremesahil.us.auth0.com",
       "auth0ClientId": "V2Pti9JcSRrcewATgR1xu4O0FHVGgXMq"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/b02aa5d1-fa5c-4fe9-bb42-a79a596f4f4f"
     }
   }
 }
