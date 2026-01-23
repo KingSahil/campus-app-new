@@ -20,8 +20,8 @@ const generateUUIDFromString = (str) => {
     return `${hex.substr(0, 8)}-${hex.substr(0, 4)}-4${hex.substr(0, 3)}-${hex.substr(0, 4)}-${hex.substr(0, 12)}`.padEnd(36, '0');
 };
 
-// Campus location coordinates with high precision
-const CAMPUS_LOCATION = {
+// Default campus location coordinates (fallback)
+const DEFAULT_CAMPUS_LOCATION = {
     latitude: 31.649174,
     longitude: 74.818695,
     elevation: 228, // meters above sea level
@@ -175,8 +175,32 @@ export default function DashboardScreen({ navigation }) {
     const [searchResults, setSearchResults] = useState([]);
     const [showSearchResults, setShowSearchResults] = useState(false);
     const [searchLoading, setSearchLoading] = useState(false);
+    const [campusLocation, setCampusLocation] = useState(DEFAULT_CAMPUS_LOCATION);
+    const [feedbackModal, setFeedbackModal] = useState({ visible: false, title: '', message: '', type: 'info' }); // type: info, success, error, loading
 
     useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('settings')
+                    .select('value')
+                    .eq('key', 'campus_location')
+                    .single();
+
+                if (data?.value) {
+                    console.log('Using configured campus location:', data.value);
+                    setCampusLocation({
+                        latitude: data.value.latitude,
+                        longitude: data.value.longitude,
+                        elevation: data.value.elevation
+                    });
+                }
+            } catch (error) {
+                console.log('Error fetching location settings, using default:', error);
+            }
+        };
+
+        fetchSettings();
         getUserInfo();
         fetchActiveSessions();
 
@@ -370,7 +394,7 @@ export default function DashboardScreen({ navigation }) {
             }
 
             // Show loading indicator
-            Alert.alert('Verifying Location', 'Getting your GPS location...');
+            setFeedbackModal({ visible: true, title: 'Verifying Location', message: 'Getting your GPS location...', type: 'loading' });
 
             // Get highly accurate location with multiple samples
             const userLocation = await getAccurateLocation();
@@ -380,9 +404,9 @@ export default function DashboardScreen({ navigation }) {
                 userLocation.latitude,
                 userLocation.longitude,
                 userLocation.altitude,
-                CAMPUS_LOCATION.latitude,
-                CAMPUS_LOCATION.longitude,
-                CAMPUS_LOCATION.elevation
+                campusLocation.latitude,
+                campusLocation.longitude,
+                campusLocation.elevation
             );
 
             console.log('High-Precision Location Verification:', {
@@ -399,15 +423,17 @@ export default function DashboardScreen({ navigation }) {
 
             // Check if user is within allowed range
             if (distance > ALLOWED_DISTANCE) {
-                Alert.alert(
-                    'Location Verification Failed',
-                    `You must be within ${ALLOWED_DISTANCE}m of campus to mark attendance.\n\nYour distance: ${distance.toFixed(1)}m\nGPS accuracy: ±${userLocation.accuracy.toFixed(1)}m\n\nPlease move closer to the campus center.`,
-                    [{ text: 'OK' }]
-                );
+                setFeedbackModal({
+                    visible: true,
+                    title: 'Location Verification Failed',
+                    message: `You must be within ${ALLOWED_DISTANCE}m of campus to mark attendance.\n\nYour distance: ${distance.toFixed(1)}m\nGPS accuracy: ±${userLocation.accuracy.toFixed(1)}m\n\nPlease move closer to the campus center.`,
+                    type: 'error'
+                });
                 return;
             }
 
             // Location verified, show custom confirmation modal
+            setFeedbackModal({ visible: false, title: '', message: '', type: 'info' }); // Close loading modal
             setConfirmModal({
                 visible: true,
                 session: session,
@@ -416,11 +442,13 @@ export default function DashboardScreen({ navigation }) {
             });
         } catch (error) {
             console.error('Location error:', error);
-            Alert.alert(
-                'Location Error',
-                error.message || 'Unable to get your location. Please make sure you have clear sky view and location services are enabled.',
-                [{ text: 'OK' }]
-            );
+            console.error('Location error:', error);
+            setFeedbackModal({
+                visible: true,
+                title: 'Location Error',
+                message: error.message || 'Unable to get your location. Please make sure you have clear sky view and location services are enabled.',
+                type: 'error'
+            });
         }
     };
 
@@ -452,7 +480,7 @@ export default function DashboardScreen({ navigation }) {
                 .single();
 
             if (existingRecord) {
-                Alert.alert('Already Marked', 'You have already marked attendance for this session');
+                setFeedbackModal({ visible: true, title: 'Already Marked', message: 'You have already marked attendance for this session', type: 'info' });
                 return;
             }
 
@@ -473,18 +501,24 @@ export default function DashboardScreen({ navigation }) {
 
             if (error) {
                 console.error('Error marking attendance:', error);
-                Alert.alert('Error', 'Failed to mark attendance. Please try again.');
+                setFeedbackModal({ visible: true, title: 'Error', message: 'Failed to mark attendance. Please try again.', type: 'error' });
                 return;
             }
 
-            Alert.alert(
-                'Success',
-                `Attendance marked successfully!\n\nVerified distance: ${distance}m\nGPS accuracy: ±${accuracy}m`
-            );
+            setFeedbackModal({
+                visible: true,
+                title: 'Success',
+                message: `Attendance marked successfully!\n\nVerified distance: ${distance}m\nGPS accuracy: ±${accuracy}m`,
+                type: 'success'
+            });
         } catch (error) {
             console.error('Error:', error);
-            Alert.alert('Error', 'Failed to mark attendance');
+            setFeedbackModal({ visible: true, title: 'Error', message: 'Failed to mark attendance', type: 'error' });
         }
+    };
+
+    const closeFeedbackModal = () => {
+        setFeedbackModal(prev => ({ ...prev, visible: false }));
     };
 
     const quickAccessItems = [
@@ -729,6 +763,37 @@ export default function DashboardScreen({ navigation }) {
                         </View>
                     </View>
                 </Modal>
+
+                {/* Feedback Modal (Loading/Success/Error) */}
+                <Modal
+                    animationType="fade"
+                    transparent={true}
+                    visible={feedbackModal.visible}
+                    onRequestClose={closeFeedbackModal}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                {feedbackModal.type === 'loading' && <ActivityIndicator size="large" color="#0A84FF" />}
+                                {feedbackModal.type === 'success' && <MaterialIcons name="check-circle" size={48} color="#10B981" />}
+                                {feedbackModal.type === 'error' && <MaterialIcons name="error" size={48} color="#EF4444" />}
+                                {feedbackModal.type === 'info' && <MaterialIcons name="info" size={48} color="#0A84FF" />}
+                            </View>
+
+                            <Text style={styles.modalTitle}>{feedbackModal.title}</Text>
+                            <Text style={styles.modalMessage}>{feedbackModal.message}</Text>
+
+                            {feedbackModal.type !== 'loading' && (
+                                <TouchableOpacity
+                                    style={[styles.modalButton, styles.confirmButton, { width: '100%' }]}
+                                    onPress={closeFeedbackModal}
+                                >
+                                    <Text style={styles.confirmButtonText}>OK</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </View>
+                </Modal>
             </SafeAreaView>
         </View>
     );
@@ -960,6 +1025,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
+        zIndex: 9999, // Ensure modal is above everything on web
     },
     modalContent: {
         backgroundColor: 'rgba(28, 28, 46, 0.98)',

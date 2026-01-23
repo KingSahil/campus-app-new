@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Location from 'expo-location';
 import { supabase } from '../lib/supabase';
 import { auth0 } from '../lib/auth0';
 
@@ -17,11 +18,17 @@ export default function AttendanceAdminScreen({ navigation }) {
 
     const [selectedDays, setSelectedDays] = useState([0, 2, 4]); // Mon, Wed, Fri
     const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    
+
     const [configuredClasses, setConfiguredClasses] = useState([]);
     const [subjectName, setSubjectName] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+
+    // Campus Location State
+    const [campusLat, setCampusLat] = useState('31.649174');
+    const [campusLng, setCampusLng] = useState('74.818695');
+    const [campusAlt, setCampusAlt] = useState('228');
+    const [locationLoading, setLocationLoading] = useState(false);
 
     useEffect(() => {
         fetchClasses();
@@ -31,7 +38,7 @@ export default function AttendanceAdminScreen({ navigation }) {
         try {
             setLoading(true);
             const user = await auth0.getUser();
-            
+
             const { data, error } = await supabase
                 .from('classes')
                 .select('*')
@@ -59,6 +66,80 @@ export default function AttendanceAdminScreen({ navigation }) {
         }
     };
 
+    const fetchSettings = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('settings')
+                .select('value')
+                .eq('key', 'campus_location')
+                .single();
+
+            if (data?.value) {
+                setCampusLat(data.value.latitude.toString());
+                setCampusLng(data.value.longitude.toString());
+                setCampusAlt(data.value.elevation.toString());
+            }
+        } catch (error) {
+            console.log('Error fetching settings:', error);
+        }
+    };
+
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    const saveSettings = async () => {
+        try {
+            setLocationLoading(true);
+            const locationData = {
+                latitude: parseFloat(campusLat),
+                longitude: parseFloat(campusLng),
+                elevation: parseFloat(campusAlt)
+            };
+
+            const { error } = await supabase
+                .from('settings')
+                .upsert({
+                    key: 'campus_location',
+                    value: locationData,
+                    updated_at: new Date().toISOString()
+                });
+
+            if (error) throw error;
+            Alert.alert('Success', 'Campus location updated successfully');
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            Alert.alert('Error', 'Failed to save settings');
+        } finally {
+            setLocationLoading(false);
+        }
+    };
+
+    const getCurrentLocation = async () => {
+        try {
+            setLocationLoading(true);
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Permission Denied', 'Location permission is required to get current location');
+                return;
+            }
+
+            const location = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.High
+            });
+
+            setCampusLat(location.coords.latitude.toString());
+            setCampusLng(location.coords.longitude.toString());
+            if (location.coords.altitude) {
+                setCampusAlt(location.coords.altitude.toFixed(1).toString());
+            }
+        } catch (error) {
+            console.error('Error getting location:', error);
+            Alert.alert('Error', 'Failed to get current location');
+        } finally {
+            setLocationLoading(false);
+        }
+    };
 
 
     const toggleDay = (index) => {
@@ -81,7 +162,7 @@ export default function AttendanceAdminScreen({ navigation }) {
             setConfiguredClasses(prev =>
                 prev.filter(item => item.id !== id)
             );
-            
+
             Alert.alert('Success', 'Class deleted successfully');
         } catch (error) {
             console.error('Error deleting class:', error);
@@ -104,12 +185,12 @@ export default function AttendanceAdminScreen({ navigation }) {
 
 
     return (
-        
+
         <View style={styles.container}>
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.backButton}
                         onPress={() => navigation.navigate('AdminDashboard')}
                         activeOpacity={0.7}
@@ -121,11 +202,85 @@ export default function AttendanceAdminScreen({ navigation }) {
                 </View>
 
                 {/* Main Content */}
-                <ScrollView 
-                    style={styles.scrollView} 
+                <ScrollView
+                    style={styles.scrollView}
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
+
+                    {/* Campus Location Settings */}
+                    <View style={styles.addClassCard}>
+                        <View style={styles.cardHeader}>
+                            <MaterialIcons name="location-city" size={24} color="#10B981" />
+                            <Text style={styles.cardHeaderTitle}>Campus Location</Text>
+                        </View>
+
+                        <View style={styles.formSection}>
+                            <View style={styles.rowInputs}>
+                                <View style={[styles.inputGroup, { flex: 1.5 }]}>
+                                    <Text style={styles.inputLabel}>LATITUDE</Text>
+                                    <TextInput
+                                        style={styles.textInput}
+                                        value={campusLat}
+                                        onChangeText={setCampusLat}
+                                        keyboardType="numeric"
+                                        placeholder="31.649..."
+                                        placeholderTextColor="rgba(142, 142, 147, 0.5)"
+                                    />
+                                </View>
+                                <View style={[styles.inputGroup, { flex: 1.5 }]}>
+                                    <Text style={styles.inputLabel}>LONGITUDE</Text>
+                                    <TextInput
+                                        style={styles.textInput}
+                                        value={campusLng}
+                                        onChangeText={setCampusLng}
+                                        keyboardType="numeric"
+                                        placeholder="74.818..."
+                                        placeholderTextColor="rgba(142, 142, 147, 0.5)"
+                                    />
+                                </View>
+                                <View style={[styles.inputGroup, { flex: 1 }]}>
+                                    <Text style={styles.inputLabel}>Elevation</Text>
+                                    <TextInput
+                                        style={styles.textInput}
+                                        value={campusAlt}
+                                        onChangeText={setCampusAlt}
+                                        keyboardType="numeric"
+                                        placeholder="228"
+                                        placeholderTextColor="rgba(142, 142, 147, 0.5)"
+                                    />
+                                </View>
+                            </View>
+
+                            <View style={{ flexDirection: 'row', gap: 12 }}>
+                                <TouchableOpacity
+                                    style={[styles.addButton, { flex: 1, borderColor: '#10B981' }]}
+                                    activeOpacity={0.8}
+                                    onPress={getCurrentLocation}
+                                    disabled={locationLoading}
+                                >
+                                    {locationLoading ? (
+                                        <ActivityIndicator color="#10B981" />
+                                    ) : (
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                            <MaterialIcons name="my-location" size={18} color="#10B981" />
+                                            <Text style={[styles.addButtonText, { color: '#10B981' }]}>Get Current</Text>
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={[styles.addButton, { flex: 1, backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: '#10B981' }]}
+                                    activeOpacity={0.8}
+                                    onPress={saveSettings}
+                                    disabled={locationLoading}
+                                >
+                                    <Text style={[styles.addButtonText, { color: '#10B981' }]}>Save Location</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+
                     {/* Add New Class Card */}
                     <View style={styles.addClassCard}>
                         <View style={styles.cardHeader}>
@@ -247,15 +402,15 @@ export default function AttendanceAdminScreen({ navigation }) {
                                         const user = await auth0.getUser();
 
                                         // Format times for database
-                                        const startTimeStr = startTime.toLocaleTimeString('en-US', { 
-                                            hour12: false, 
-                                            hour: '2-digit', 
+                                        const startTimeStr = startTime.toLocaleTimeString('en-US', {
+                                            hour12: false,
+                                            hour: '2-digit',
                                             minute: '2-digit',
                                             second: '2-digit'
                                         });
-                                        const endTimeStr = endTime.toLocaleTimeString('en-US', { 
-                                            hour12: false, 
-                                            hour: '2-digit', 
+                                        const endTimeStr = endTime.toLocaleTimeString('en-US', {
+                                            hour12: false,
+                                            hour: '2-digit',
                                             minute: '2-digit',
                                             second: '2-digit'
                                         });
@@ -291,7 +446,7 @@ export default function AttendanceAdminScreen({ navigation }) {
                                         // reset
                                         setSubjectName('');
                                         setSelectedDays([0, 2, 4]);
-                                        
+
                                         Alert.alert('Success', 'Class added successfully');
                                     } catch (error) {
                                         console.error('Error adding class:', error);
@@ -350,41 +505,41 @@ export default function AttendanceAdminScreen({ navigation }) {
                                                     </View>
                                                     <View style={styles.timeContainer}>
                                                         <MaterialIcons name="schedule" size={14} color="#8E8E93" />
-                                                    <Text style={styles.timeText}>
-                                                        {classItem.startTime.toLocaleTimeString([], {
-                                                            hour: 'numeric',
-                                                            minute: '2-digit',
-                                                            hour12: true,
-                                                        })} - {classItem.endTime.toLocaleTimeString([], {
-                                                            hour: 'numeric',
-                                                            minute: '2-digit',
-                                                            hour12: true,
-                                                        })}
-                                                    </Text>
+                                                        <Text style={styles.timeText}>
+                                                            {classItem.startTime.toLocaleTimeString([], {
+                                                                hour: 'numeric',
+                                                                minute: '2-digit',
+                                                                hour12: true,
+                                                            })} - {classItem.endTime.toLocaleTimeString([], {
+                                                                hour: 'numeric',
+                                                                minute: '2-digit',
+                                                                hour12: true,
+                                                            })}
+                                                        </Text>
 
+                                                    </View>
                                                 </View>
                                             </View>
-                                        </View>
-                                        <View style={styles.classActions}>
-                                            <TouchableOpacity
-                                                style={styles.actionButton}
-                                                activeOpacity={0.7}
-                                                onPress={() => editClass(classItem)}
-                                            >
-                                                <MaterialIcons name="edit" size={20} color="#0A84FF" />
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                style={styles.actionButton}
-                                                activeOpacity={0.7}
-                                                onPress={() => deleteClass(classItem.id)}
-                                            >
-                                                <MaterialIcons name="delete" size={20} color="#FF453A" />
-                                            </TouchableOpacity>
+                                            <View style={styles.classActions}>
+                                                <TouchableOpacity
+                                                    style={styles.actionButton}
+                                                    activeOpacity={0.7}
+                                                    onPress={() => editClass(classItem)}
+                                                >
+                                                    <MaterialIcons name="edit" size={20} color="#0A84FF" />
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    style={styles.actionButton}
+                                                    activeOpacity={0.7}
+                                                    onPress={() => deleteClass(classItem.id)}
+                                                >
+                                                    <MaterialIcons name="delete" size={20} color="#FF453A" />
+                                                </TouchableOpacity>
+                                            </View>
                                         </View>
                                     </View>
-                                </View>
-                            ))}
-                        </View>
+                                ))}
+                            </View>
                         )}
                     </View>
                 </ScrollView>
@@ -394,7 +549,7 @@ export default function AttendanceAdminScreen({ navigation }) {
                     colors={['transparent', 'rgba(22, 22, 37, 0.95)', '#161625']}
                     style={styles.saveButtonContainer}
                 >
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.saveButton}
                         activeOpacity={0.8}
                         onPress={() => {
