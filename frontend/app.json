@@ -1,57 +1,50 @@
 {
   "expo": {
-    "name": "campus-app",
-    "slug": "campusapp",
+    "name": "Campus App",
+    "slug": "campus-app-new",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "scheme": "campusapp",
+    "scheme": "com.prosahil2150.campusappnew",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.prosahil2150.campusappnew"
     },
     "android": {
-      "package": "com.campusapp.app",
+      "package": "com.prosahil2150.campusappnew",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "intentFilters": [
         {
+          "autoVerify": true,
           "action": "VIEW",
           "data": [
             {
-              "scheme": "campusapp",
-              "host": "supremesahil.us.auth0.com"
+              "scheme": "com.prosahil2150.campusappnew",
+              "pathPrefix": "/android/com.prosahil2150.campusappnew/callback"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ]
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "expo-web-browser",
-      "@react-native-community/datetimepicker",
-      "expo-font"
-    ],
     "extra": {
       "eas": {
-        "projectId": "e2793099-47a0-45f4-a6c4-f6a3fce890e3"
-      }
-    },
-    "owner": "prosahil2150"
+        "projectId": "b02aa5d1-fa5c-4fe9-bb42-a79a596f4f4f"
+      },
+      "auth0Domain": "supremesahil.us.auth0.com",
+      "auth0ClientId": "V2Pti9JcSRrcewATgR1xu4O0FHVGgXMq"
+    }
   }
 }

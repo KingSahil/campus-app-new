@@ -14,13 +14,19 @@ const { width } = Dimensions.get('window');
 // Helper function to extract YouTube video ID from URL
 const getYouTubeVideoId = (url) => {
     if (!url) return null;
-    
+
     // YouTube Shorts URL: https://www.youtube.com/shorts/VIDEO_ID
     const shortsMatch = url.match(/\/shorts\/([^?&]+)/);
     if (shortsMatch && shortsMatch[1].length === 11) {
         return shortsMatch[1];
     }
-    
+
+    // Live URL: https://www.youtube.com/live/VIDEO_ID
+    const liveMatch = url.match(/\/live\/([^?&]+)/);
+    if (liveMatch && liveMatch[1].length === 11) {
+        return liveMatch[1];
+    }
+
     // Standard YouTube URLs
     const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*/;
     const match = url.match(regExp);
@@ -36,7 +42,7 @@ function DirectVideoPlayer({ videoUrl, onTimeUpdate }) {
 
     React.useEffect(() => {
         if (!player) return;
-        
+
         const interval = setInterval(() => {
             if (player.currentTime) {
                 onTimeUpdate(player.currentTime);
@@ -57,18 +63,85 @@ function DirectVideoPlayer({ videoUrl, onTimeUpdate }) {
 }
 
 export default function LectureVideoScreen({ navigation, route }) {
-    const { video } = route.params;
+    const {
+        video: videoParam,
+        videoId,
+        videoUrl,
+        videoTitle,
+        videoDescription,
+        videoThumbnail,
+        videoDuration,
+        videoUpvotes,
+        topicId,
+        topicName,
+        subjectId,
+        subjectName
+    } = route.params || {};
+
+    console.log('[LectureVideo] route.params:', route.params);
+    console.log('[LectureVideo] Flattened ID:', videoId);
+    console.log('[LectureVideo] Flattened URL:', videoUrl);
+
+    // Reconstruct video object if lost during refresh or malformed
+    let video = videoParam;
+
+    // Check if videoParam is usable (has a url and isn't the string "[object Object]")
+    // On Web refresh, complex objects in params often become "[object Object]"
+    if (!video || !video.url || video === '[object Object]') {
+        if (videoUrl) {
+            video = {
+                id: videoId,
+                url: videoUrl,
+                title: videoTitle,
+                description: videoDescription,
+                thumbnail: videoThumbnail,
+                duration: videoDuration,
+                upvotes: videoUpvotes
+            };
+        }
+    }
+
+    const handleBack = () => {
+        if (navigation.canGoBack()) {
+            navigation.goBack();
+        } else if (topicId && subjectId) {
+            navigation.navigate('VideosList', {
+                topicId,
+                topicName,
+                subjectId,
+                subjectName
+            });
+        } else {
+            navigation.navigate('LearningHub');
+        }
+    };
+
+    // If we still don't have a video URL, we can't show anything
+    if (!video.url) {
+        return (
+            <View style={styles.container}>
+                <SafeAreaView style={styles.safeArea}>
+                    <View style={styles.loadingContainer}>
+                        <Text style={styles.loadingText}>Video not found</Text>
+                        <TouchableOpacity onPress={handleBack} style={{ marginTop: 20 }}>
+                            <Text style={{ color: '#3B82F6' }}>Go Back</Text>
+                        </TouchableOpacity>
+                    </View>
+                </SafeAreaView>
+            </View>
+        );
+    }
     const [activeTab, setActiveTab] = useState('discussion');
     const videoRef = useRef(null);
     const youtubePlayerRef = useRef(null);
     const [currentTime, setCurrentTime] = useState(0);
-    
+
     // Upvote states
     const [upvoteCount, setUpvoteCount] = useState(0);
     const [hasUpvoted, setHasUpvoted] = useState(false);
     const [loadingUpvote, setLoadingUpvote] = useState(false);
     const [user, setUser] = useState(null);
-    
+
     // Discussion states
     const [discussions, setDiscussions] = useState([]);
     const [loadingDiscussions, setLoadingDiscussions] = useState(false);
@@ -76,27 +149,29 @@ export default function LectureVideoScreen({ navigation, route }) {
     const [replyTo, setReplyTo] = useState(null);
     const [replyText, setReplyText] = useState('');
     const [expandedThreads, setExpandedThreads] = useState({});
-    
+
     // Ask AI states
     const [userQuestion, setUserQuestion] = useState('');
     const [summary, setSummary] = useState('')
     const [loadingSummary, setLoadingSummary] = useState(false);
-    
+
     // Chapters states
     const [chapters, setChapters] = useState([]);
     const [loadingChapters, setLoadingChapters] = useState(false);
     const [overallSummary, setOverallSummary] = useState('');
     const [playerReady, setPlayerReady] = useState(false);
-    
+
     // Quiz states
     const [quiz, setQuiz] = useState(null);
     const [loadingQuiz, setLoadingQuiz] = useState(false);
     const [selectedAnswers, setSelectedAnswers] = useState({});
     const [showResults, setShowResults] = useState(false);
-    
+
     // Keyboard state
     const [keyboardVisible, setKeyboardVisible] = useState(false);
-    
+
+
+
     // Check if the video is a YouTube video
     const youtubeVideoId = getYouTubeVideoId(video.url);
     const isYouTubeVideo = youtubeVideoId !== null;
@@ -107,7 +182,7 @@ export default function LectureVideoScreen({ navigation, route }) {
         fetchDiscussions();
         fetchSavedChapters();
         fetchSavedQuiz();
-        
+
         // Keyboard listeners
         const keyboardDidShowListener = Keyboard.addListener(
             'keyboardDidShow',
@@ -117,7 +192,7 @@ export default function LectureVideoScreen({ navigation, route }) {
             'keyboardDidHide',
             () => setKeyboardVisible(false)
         );
-        
+
         return () => {
             keyboardDidShowListener.remove();
             keyboardDidHideListener.remove();
@@ -258,7 +333,7 @@ export default function LectureVideoScreen({ navigation, route }) {
 
             // Get backend URL from environment variable
             const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
-            
+
             const response = await fetch(`${BACKEND_URL}/ai-question`, {
                 method: 'POST',
                 headers: {
@@ -278,7 +353,7 @@ export default function LectureVideoScreen({ navigation, route }) {
             }
 
             const data = await response.json();
-            
+
             if (data.answer) {
                 setSummary(data.answer);
                 // Save to database
@@ -296,7 +371,7 @@ export default function LectureVideoScreen({ navigation, route }) {
 
     const saveAIQuestionToDatabase = async (question, answer) => {
         if (!video.id) return;
-        
+
         try {
             const { error } = await supabase
                 .from('video_ai_questions')
@@ -321,7 +396,7 @@ export default function LectureVideoScreen({ navigation, route }) {
 
     const fetchSavedAIQuestions = async (question) => {
         if (!video.id) return null;
-        
+
         try {
             const { data, error } = await supabase
                 .from('video_ai_questions')
@@ -356,9 +431,9 @@ export default function LectureVideoScreen({ navigation, route }) {
         try {
             // Get backend URL from environment variable
             const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
-            
+
             console.log('Using backend URL:', BACKEND_URL);
-            
+
             const response = await fetch(`${BACKEND_URL}/analyze`, {
                 method: 'POST',
                 headers: {
@@ -377,21 +452,21 @@ export default function LectureVideoScreen({ navigation, route }) {
             }
 
             const data = await response.json();
-            
+
             // Update state with chapters and summary
             setChapters(data.chapters || []);
             setOverallSummary(data.summary || '');
-            
+
             // Save to database for future use
             await saveChaptersToDatabase(data.chapters || [], data.summary || '');
-            
+
             Alert.alert('Success', 'Chapters generated successfully!');
         } catch (error) {
             console.error('Chapter Generation Error:', error);
-            
+
             // Provide more helpful error messages
             let errorMessage = 'Failed to generate chapters.';
-            
+
             if (error.message === 'Network request failed' || error.message === 'Failed to fetch') {
                 errorMessage = `Cannot connect to backend server.\n\n` +
                     `Please ensure:\n` +
@@ -402,7 +477,7 @@ export default function LectureVideoScreen({ navigation, route }) {
             } else {
                 errorMessage = error.message || errorMessage;
             }
-            
+
             Alert.alert('Backend Connection Error', errorMessage);
         } finally {
             setLoadingChapters(false);
@@ -414,7 +489,7 @@ export default function LectureVideoScreen({ navigation, route }) {
         try {
             // Get backend URL from environment variable
             const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
-            
+
             const response = await fetch(`${BACKEND_URL}/generate-quiz`, {
                 method: 'POST',
                 headers: {
@@ -433,7 +508,7 @@ export default function LectureVideoScreen({ navigation, route }) {
             }
 
             const data = await response.json();
-            
+
             if (data.quiz && Array.isArray(data.quiz) && data.quiz.length > 0) {
                 setQuiz(data.quiz);
                 setSelectedAnswers({});
@@ -453,7 +528,7 @@ export default function LectureVideoScreen({ navigation, route }) {
 
     const saveQuizToDatabase = async (quizData) => {
         if (!video.id) return;
-        
+
         try {
             const { error } = await supabase
                 .from('video_quizzes')
@@ -477,7 +552,7 @@ export default function LectureVideoScreen({ navigation, route }) {
 
     const fetchSavedQuiz = async () => {
         if (!video.id) return;
-        
+
         try {
             const { data, error } = await supabase
                 .from('video_quizzes')
@@ -527,7 +602,7 @@ export default function LectureVideoScreen({ navigation, route }) {
 
     const fetchSavedChapters = async () => {
         if (!video.id) return;
-        
+
         try {
             const { data, error } = await supabase
                 .from('video_chapters')
@@ -555,7 +630,7 @@ export default function LectureVideoScreen({ navigation, route }) {
 
     const saveChaptersToDatabase = async (chaptersData, summaryData) => {
         if (!video.id) return;
-        
+
         try {
             const { error } = await supabase
                 .from('video_chapters')
@@ -668,7 +743,7 @@ export default function LectureVideoScreen({ navigation, route }) {
         // Convert timestamp (MM:SS or HH:MM:SS) to seconds
         const parts = timestamp.split(':').map(Number);
         let seconds = 0;
-        
+
         if (parts.length === 2) {
             // MM:SS format
             seconds = parts[0] * 60 + parts[1];
@@ -712,7 +787,7 @@ export default function LectureVideoScreen({ navigation, route }) {
                 return (
                     <View style={styles.tabContent}>
                         <View style={styles.upvoteSection}>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={[
                                     styles.upvoteButton,
                                     hasUpvoted && styles.upvoteButtonActive
@@ -723,10 +798,10 @@ export default function LectureVideoScreen({ navigation, route }) {
                                 {loadingUpvote ? (
                                     <ActivityIndicator color={hasUpvoted ? "#fff" : "#3B82F6"} />
                                 ) : (
-                                    <MaterialIcons 
-                                        name={hasUpvoted ? "thumb-up" : "thumb-up-off-alt"} 
-                                        size={32} 
-                                        color={hasUpvoted ? "#fff" : "#3B82F6"} 
+                                    <MaterialIcons
+                                        name={hasUpvoted ? "thumb-up" : "thumb-up-off-alt"}
+                                        size={32}
+                                        color={hasUpvoted ? "#fff" : "#3B82F6"}
                                     />
                                 )}
                             </TouchableOpacity>
@@ -842,7 +917,7 @@ export default function LectureVideoScreen({ navigation, route }) {
                 return (
                     <View style={styles.tabContent}>
                         <Text style={styles.sectionTitle}>Ask AI</Text>
-                        
+
                         {summary ? (
                             <View style={styles.summaryCard}>
                                 <Text style={styles.summaryTitle}>
@@ -879,7 +954,7 @@ export default function LectureVideoScreen({ navigation, route }) {
                 return (
                     <View style={styles.tabContent}>
                         <Text style={styles.sectionTitle}>Video Chapters</Text>
-                        
+
                         {!chapters.length ? (
                             <View style={styles.chaptersCard}>
                                 <MaterialIcons name="video-library" size={48} color="#3B82F6" />
@@ -891,7 +966,7 @@ export default function LectureVideoScreen({ navigation, route }) {
                                         ⚠️ Only available for YouTube videos
                                     </Text>
                                 )}
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={[styles.chaptersButton, !isYouTubeVideo && styles.chaptersButtonDisabled]}
                                     onPress={generateChapters}
                                     disabled={loadingChapters || !isYouTubeVideo}
@@ -922,7 +997,7 @@ export default function LectureVideoScreen({ navigation, route }) {
                                 {/* Chapters List */}
                                 <View style={styles.chaptersHeader}>
                                     <Text style={styles.chaptersListTitle}>Chapters ({chapters.length})</Text>
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         style={styles.regenerateButton}
                                         onPress={generateChapters}
                                         disabled={loadingChapters}
@@ -959,14 +1034,14 @@ export default function LectureVideoScreen({ navigation, route }) {
                 return (
                     <View style={styles.tabContent}>
                         <Text style={styles.sectionTitle}>AI Quiz</Text>
-                        
+
                         {!quiz ? (
                             <View style={styles.quizCard}>
                                 <MaterialIcons name="quiz" size={48} color="#3B82F6" />
                                 <Text style={styles.quizText}>
                                     Test your understanding with AI-generated questions
                                 </Text>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={styles.quizButton}
                                     onPress={generateQuiz}
                                     disabled={loadingQuiz}
@@ -994,7 +1069,7 @@ export default function LectureVideoScreen({ navigation, route }) {
                                             const isCorrect = q.correct === optionLetter;
                                             const showCorrect = showResults && isCorrect;
                                             const showWrong = showResults && isSelected && !isCorrect;
-                                            
+
                                             return (
                                                 <TouchableOpacity
                                                     key={optIndex}
@@ -1006,7 +1081,7 @@ export default function LectureVideoScreen({ navigation, route }) {
                                                     ]}
                                                     onPress={() => {
                                                         if (!showResults) {
-                                                            setSelectedAnswers({...selectedAnswers, [index]: optionLetter});
+                                                            setSelectedAnswers({ ...selectedAnswers, [index]: optionLetter });
                                                         }
                                                     }}
                                                     disabled={showResults}
@@ -1024,9 +1099,9 @@ export default function LectureVideoScreen({ navigation, route }) {
                                         })}
                                     </View>
                                 ))}
-                                
+
                                 {!showResults ? (
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         style={styles.submitButton}
                                         onPress={submitQuiz}
                                     >
@@ -1038,7 +1113,7 @@ export default function LectureVideoScreen({ navigation, route }) {
                                         <Text style={styles.resultsText}>
                                             Score: {Object.values(selectedAnswers).filter((ans, idx) => ans === quiz[idx]?.correct).length} / {quiz.length}
                                         </Text>
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             style={styles.retakeButton}
                                             onPress={() => {
                                                 setQuiz(null);
@@ -1071,7 +1146,7 @@ export default function LectureVideoScreen({ navigation, route }) {
                 <View style={styles.header}>
                     <TouchableOpacity
                         style={styles.backButton}
-                        onPress={() => navigation.goBack()}
+                        onPress={handleBack}
                     >
                         <MaterialIcons name="arrow-back" size={24} color="#fff" />
                     </TouchableOpacity>
@@ -1090,7 +1165,7 @@ export default function LectureVideoScreen({ navigation, route }) {
                             <iframe
                                 style={{ width: '100%', height: '100%', border: 'none' }}
                                 src={`https://www.youtube.com/embed/${youtubeVideoId}?enablejsapi=1`}
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                                 allowFullScreen
                             />
                         ) : (
@@ -1291,6 +1366,12 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#1F2937',
+        ...Platform.select({
+            web: {
+                height: '100vh',
+                overflow: 'hidden',
+            }
+        })
     },
     keyboardAvoid: {
         flex: 1,
@@ -1324,8 +1405,19 @@ const styles = StyleSheet.create({
     },
     videoContainer: {
         width: '100%',
-        aspectRatio: 16 / 9,
         backgroundColor: '#000',
+        ...Platform.select({
+            web: {
+                width: '100%',
+                maxWidth: 1000,
+                aspectRatio: 16 / 9,
+                alignSelf: 'center',
+                maxHeight: '60vh',
+            },
+            default: {
+                aspectRatio: 16 / 9,
+            }
+        })
     },
     video: {
         width: '100%',

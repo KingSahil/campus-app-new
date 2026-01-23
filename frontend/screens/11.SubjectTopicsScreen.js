@@ -2,17 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Modal, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { getTopicsBySubject, createTopic } from '../lib/learningHub';
+import { getTopicsBySubject, createTopic, deleteTopic } from '../lib/learningHub';
 import Background from '../components/Background';
 
-export default function SubjectTopicsScreen({ navigation, route }) {
-    const { subject } = route.params;
-    
+export default function SubjectTopicsScreen({ route, navigation }) {
+    const { subject: subjectParam, subjectId, subjectName } = route.params || {};
+
+    // Reconstruct subject if lost during refresh or malformed
+    let subject = subjectParam;
+    if (!subject || subject === '[object Object]') {
+        if (subjectId) {
+            subject = { id: subjectId, name: subjectName };
+        }
+    }
+
     const [topics, setTopics] = useState([]);
     const [loading, setLoading] = useState(true);
     const [modalVisible, setModalVisible] = useState(false);
     const [newTopicName, setNewTopicName] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [isDeleteMode, setIsDeleteMode] = useState(false);
 
     useEffect(() => {
         loadTopics();
@@ -20,10 +29,10 @@ export default function SubjectTopicsScreen({ navigation, route }) {
 
     const loadTopics = async () => {
         if (!subject?.id) return;
-        
+
         setLoading(true);
         const { data, error } = await getTopicsBySubject(subject.id);
-        
+
         if (error) {
             Alert.alert('Error', 'Failed to load topics: ' + error.message);
         } else {
@@ -54,11 +63,49 @@ export default function SubjectTopicsScreen({ navigation, route }) {
 
         setNewTopicName('');
         setModalVisible(false);
-        
+
         // Reload topics to ensure fresh data from database
         await loadTopics();
-        
+
         Alert.alert('Success', 'Topic added successfully!');
+    };
+
+    const handleDeleteTopic = async (id) => {
+        if (Platform.OS === 'web') {
+            if (window.confirm('Are you sure you want to delete this topic?')) {
+                const previousTopics = [...topics];
+                setTopics(topics.filter(t => t.id !== id));
+
+                const { error } = await deleteTopic(id);
+                if (error) {
+                    setTopics(previousTopics);
+                    alert('Failed to delete topic: ' + error.message);
+                }
+            }
+            return;
+        }
+
+        Alert.alert(
+            'Delete Topic',
+            'Are you sure you want to delete this topic?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        const previousTopics = [...topics];
+                        setTopics(topics.filter(t => t.id !== id));
+
+                        const { error } = await deleteTopic(id);
+                        if (error) {
+                            setTopics(previousTopics);
+                            Alert.alert('Error', 'Failed to delete topic');
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     return (
@@ -78,13 +125,26 @@ export default function SubjectTopicsScreen({ navigation, route }) {
                                 <Text style={styles.title}>{subject.name}</Text>
                                 <Text style={styles.subtitle}>Topics & Lessons</Text>
                             </View>
-                            <TouchableOpacity 
-                                style={styles.addButton} 
-                                onPress={() => setModalVisible(true)}
-                                activeOpacity={0.7}
-                            >
-                                <MaterialIcons name="add" size={24} color="#8E8E93" />
-                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', gap: 12 }}>
+                                <TouchableOpacity
+                                    style={styles.addButton}
+                                    onPress={() => setIsDeleteMode(!isDeleteMode)}
+                                    activeOpacity={0.7}
+                                >
+                                    <MaterialIcons
+                                        name={isDeleteMode ? "delete" : "delete-outline"}
+                                        size={24}
+                                        color={isDeleteMode ? "#FF3B30" : "#8E8E93"}
+                                    />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.addButton}
+                                    onPress={() => setModalVisible(true)}
+                                    activeOpacity={0.7}
+                                >
+                                    <MaterialIcons name="add" size={24} color="#8E8E93" />
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
                         {/* Topics List */}
@@ -105,14 +165,28 @@ export default function SubjectTopicsScreen({ navigation, route }) {
                                     <TouchableOpacity
                                         key={topic.id}
                                         style={styles.topicCard}
-                                        onPress={() => navigation.navigate('VideosList', { subject, topic })}
+                                        onPress={() => navigation.navigate('MaterialSelect', {
+                                            subjectId: subject.id,
+                                            subjectName: subject.name,
+                                            topicId: topic.id,
+                                            topicName: topic.name
+                                        })}
                                         activeOpacity={0.8}
                                     >
                                         <View style={styles.topicInfo}>
                                             <Text style={styles.topicName}>{topic.name}</Text>
                                             <Text style={styles.videoCount}>{topic.video_count || 0} videos</Text>
                                         </View>
-                                        <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
+                                        {isDeleteMode ? (
+                                            <TouchableOpacity
+                                                style={styles.deleteButton}
+                                                onPress={() => handleDeleteTopic(topic.id)}
+                                            >
+                                                <MaterialIcons name="delete" size={24} color="#FF3B30" />
+                                            </TouchableOpacity>
+                                        ) : (
+                                            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
+                                        )}
                                     </TouchableOpacity>
                                 ))
                             )}

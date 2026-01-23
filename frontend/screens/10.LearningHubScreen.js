@@ -1,71 +1,99 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, Modal, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Modal, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
-import { getVideosByTopic, createVideo } from '../lib/learningHub';
+import { getSubjects, createSubject, deleteSubject } from '../lib/learningHub';
 import Background from '../components/Background';
 
-export default function VideosListScreen({ navigation, route }) {
-    const { subject, topic } = route.params;
-    
-    const [videos, setVideos] = useState([]);
+export default function LearningHubScreen({ navigation }) {
+    const [subjects, setSubjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [modalVisible, setModalVisible] = useState(false);
-    const [newVideoTitle, setNewVideoTitle] = useState('');
-    const [newVideoUrl, setNewVideoUrl] = useState('');
+    const [newSubjectName, setNewSubjectName] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [isDeleteMode, setIsDeleteMode] = useState(false);
 
     useEffect(() => {
-        loadVideos();
+        loadSubjects();
     }, []);
 
-    // Reload videos when screen comes into focus (e.g., after returning from video player)
-    useFocusEffect(
-        React.useCallback(() => {
-            loadVideos();
-        }, [topic?.id])
-    );
-
-    const loadVideos = async () => {
-        if (!topic?.id) return;
-        
+    const loadSubjects = async () => {
         setLoading(true);
-        const { data, error } = await getVideosByTopic(topic.id);
-        
+        console.log('Loading subjects...');
+        const { data, error } = await getSubjects();
+
+        console.log('Subjects response:', { data, error });
+
         if (error) {
-            Alert.alert('Error', 'Failed to load videos: ' + error.message);
+            console.error('Error loading subjects:', error);
+            Alert.alert('Error', 'Failed to load subjects: ' + error.message);
+            setLoading(false);
         } else {
-            setVideos(data || []);
+            console.log('Subjects loaded:', data);
+            setSubjects(data || []);
+            setLoading(false);
         }
-        setLoading(false);
     };
 
-    const handleAddVideo = async () => {
-        if (!newVideoTitle.trim() || !newVideoUrl.trim()) {
-            Alert.alert('Error', 'Please fill in both title and video link');
-            return;
-        }
-
-        if (!topic?.id) {
-            Alert.alert('Error', 'Topic information is missing');
+    const handleAddSubject = async () => {
+        if (!newSubjectName.trim()) {
+            Alert.alert('Error', 'Please enter a subject name');
             return;
         }
 
         setSubmitting(true);
-        const { data, error } = await createVideo(topic.id, newVideoTitle, newVideoUrl);
+        const { data, error } = await createSubject(newSubjectName);
         setSubmitting(false);
 
         if (error) {
-            Alert.alert('Error', 'Failed to add video: ' + error.message);
+            Alert.alert('Error', 'Failed to add subject: ' + error.message);
             return;
         }
 
-        setVideos([data, ...videos]);
-        setNewVideoTitle('');
-        setNewVideoUrl('');
+        setSubjects([data, ...subjects]);
+        setNewSubjectName('');
         setModalVisible(false);
-        Alert.alert('Success', 'Video added successfully!');
+        Alert.alert('Success', 'Subject added successfully!');
+    };
+
+    const handleDeleteSubject = async (id) => {
+        if (Platform.OS === 'web') {
+            if (window.confirm('Are you sure you want to delete this subject?')) {
+                const previousSubjects = [...subjects];
+                setSubjects(subjects.filter(s => s.id !== id));
+
+                const { error } = await deleteSubject(id);
+                if (error) {
+                    setSubjects(previousSubjects);
+                    alert('Failed to delete subject: ' + error.message);
+                }
+            }
+            return;
+        }
+
+        Alert.alert(
+            'Delete Subject',
+            'Are you sure you want to delete this subject?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        // Optimistic update: filter out immediately
+                        const previousSubjects = [...subjects];
+                        setSubjects(subjects.filter(s => s.id !== id));
+
+                        const { error } = await deleteSubject(id);
+                        if (error) {
+                            // Revert if failed
+                            setSubjects(previousSubjects);
+                            Alert.alert('Error', 'Failed to delete subject');
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     return (
@@ -73,6 +101,7 @@ export default function VideosListScreen({ navigation, route }) {
             <Background />
 
             <SafeAreaView style={styles.safeArea} edges={['top']}>
+                {/* Main Content */}
                 <ScrollView
                     style={styles.scrollView}
                     showsVerticalScrollIndicator={false}
@@ -82,60 +111,71 @@ export default function VideosListScreen({ navigation, route }) {
                         {/* Header */}
                         <View style={styles.header}>
                             <View>
-                                <Text style={styles.title}>{topic.name}</Text>
-                                <Text style={styles.subtitle}>{subject.name}</Text>
+                                <Text style={styles.title}>Learning Hub</Text>
+                                <Text style={styles.subtitle}>Explore your subjects</Text>
                             </View>
-                            <TouchableOpacity 
-                                style={styles.addButton} 
-                                onPress={() => setModalVisible(true)}
-                                activeOpacity={0.7}
-                            >
-                                <MaterialIcons name="add" size={24} color="#8E8E93" />
-                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', gap: 12 }}>
+                                <TouchableOpacity
+                                    style={styles.addButton}
+                                    onPress={() => setIsDeleteMode(!isDeleteMode)}
+                                    activeOpacity={0.7}
+                                >
+                                    <MaterialIcons
+                                        name={isDeleteMode ? "delete" : "delete-outline"}
+                                        size={24}
+                                        color={isDeleteMode ? "#FF3B30" : "#8E8E93"}
+                                    />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.addButton}
+                                    onPress={() => setModalVisible(true)}
+                                    activeOpacity={0.7}
+                                >
+                                    <MaterialIcons name="add" size={24} color="#8E8E93" />
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
-                        {/* Videos List */}
+                        {/* Subjects List */}
                         <View style={[styles.section, { marginBottom: 100 }]}        >
                             {loading ? (
                                 <View style={styles.loadingCard}>
                                     <ActivityIndicator size="large" color="#0A84FF" />
-                                    <Text style={styles.loadingText}>Loading videos...</Text>
+                                    <Text style={styles.loadingText}>Loading subjects...</Text>
                                 </View>
-                            ) : videos.length === 0 ? (
+                            ) : subjects.length === 0 ? (
                                 <View style={styles.emptyCard}>
-                                    <MaterialIcons name="play-circle-outline" size={48} color="#8E8E93" />
-                                    <Text style={styles.emptyText}>No videos yet</Text>
-                                    <Text style={styles.emptySubtext}>Add your first video to start learning</Text>
+                                    <MaterialIcons name="school" size={48} color="#8E8E93" />
+                                    <Text style={styles.emptyText}>No subjects yet</Text>
+                                    <Text style={styles.emptySubtext}>Tap the + button to add your first subject</Text>
                                 </View>
                             ) : (
-                                videos.map((video) => (
+                                subjects.map((subject) => (
                                     <TouchableOpacity
-                                        key={video.id}
-                                        style={styles.videoCard}
-                                        onPress={() => navigation.navigate('LectureVideo', { video, topic, subject })}
+                                        key={subject.id}
+                                        style={styles.subjectCard}
+                                        onPress={() => navigation.navigate('SubjectTopics', {
+                                            subject,
+                                            subjectId: subject.id,
+                                            subjectName: subject.name
+                                        })}
                                         activeOpacity={0.8}
                                     >
-                                        <View style={styles.thumbnailContainer}>
-                                            <Image
-                                                source={{ uri: video.thumbnail }}
-                                                style={styles.thumbnail}
-                                            />
-                                            <View style={styles.playOverlay}>
-                                                <MaterialIcons name="play-circle-outline" size={40} color="rgba(255,255,255,0.8)" />
-                                            </View>
-                                            <View style={styles.durationBadge}>
-                                                <Text style={styles.durationText}>{video.duration}</Text>
-                                            </View>
+                                        <View style={styles.subjectInfo}>
+                                            <Text style={styles.subjectName}>{subject.name}</Text>
+                                            <Text style={styles.subjectTopics}>{subject.topics_preview || 'No topics yet'}</Text>
                                         </View>
-                                        <View style={styles.videoInfo}>
-                                            <Text style={styles.videoTitle} numberOfLines={2}>
-                                                {video.title}
-                                            </Text>
-                                            <View style={styles.upvotesContainer}>
-                                                <MaterialIcons name="thumb-up-off-alt" size={16} color="#0A84FF" />
-                                                <Text style={styles.upvotesText}>{video.upvotes || 0} upvotes</Text>
-                                            </View>
-                                        </View>
+
+                                        {isDeleteMode ? (
+                                            <TouchableOpacity
+                                                style={styles.deleteButton}
+                                                onPress={() => handleDeleteSubject(subject.id)}
+                                            >
+                                                <MaterialIcons name="delete" size={24} color="#FF3B30" />
+                                            </TouchableOpacity>
+                                        ) : (
+                                            <MaterialIcons name="chevron-right" size={24} color="#8E8E93" />
+                                        )}
                                     </TouchableOpacity>
                                 ))
                             )}
@@ -143,7 +183,7 @@ export default function VideosListScreen({ navigation, route }) {
                     </View>
                 </ScrollView>
 
-                {/* Add Video Modal */}
+                {/* Add Subject Modal */}
                 <Modal
                     animationType="slide"
                     transparent={true}
@@ -153,7 +193,7 @@ export default function VideosListScreen({ navigation, route }) {
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalContent}>
                             <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>Add New Video</Text>
+                                <Text style={styles.modalTitle}>Add New Subject</Text>
                                 <TouchableOpacity onPress={() => setModalVisible(false)}>
                                     <MaterialIcons name="close" size={24} color="#9CA3AF" />
                                 </TouchableOpacity>
@@ -161,20 +201,10 @@ export default function VideosListScreen({ navigation, route }) {
 
                             <TextInput
                                 style={styles.input}
-                                placeholder="Video Title"
+                                placeholder="Subject Name"
                                 placeholderTextColor="#6B7280"
-                                value={newVideoTitle}
-                                onChangeText={setNewVideoTitle}
-                            />
-
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Video URL (e.g., YouTube link)"
-                                placeholderTextColor="#6B7280"
-                                value={newVideoUrl}
-                                onChangeText={setNewVideoUrl}
-                                autoCapitalize="none"
-                                keyboardType="url"
+                                value={newSubjectName}
+                                onChangeText={setNewSubjectName}
                             />
 
                             <View style={styles.modalButtons}>
@@ -182,21 +212,20 @@ export default function VideosListScreen({ navigation, route }) {
                                     style={[styles.modalButton, styles.cancelButton]}
                                     onPress={() => {
                                         setModalVisible(false);
-                                        setNewVideoTitle('');
-                                        setNewVideoUrl('');
+                                        setNewSubjectName('');
                                     }}
                                 >
                                     <Text style={styles.cancelButtonText}>Cancel</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.modalButton, styles.addModalButton]}
-                                    onPress={handleAddVideo}
+                                    onPress={handleAddSubject}
                                     disabled={submitting}
                                 >
                                     {submitting ? (
                                         <ActivityIndicator size="small" color="#fff" />
                                     ) : (
-                                        <Text style={styles.addModalButtonText}>Add Video</Text>
+                                        <Text style={styles.addModalButtonText}>Add Subject</Text>
                                     )}
                                 </TouchableOpacity>
                             </View>
@@ -257,15 +286,16 @@ const styles = StyleSheet.create({
     section: {
         marginBottom: 32,
     },
-    videoCard: {
-        flexDirection: 'row',
-        marginBottom: 16,
-        gap: 12,
+    subjectCard: {
         backgroundColor: 'rgba(28, 28, 46, 0.7)',
         borderColor: 'rgba(255, 255, 255, 0.1)',
         borderWidth: 1,
-        padding: 12,
+        padding: 16,
         borderRadius: 12,
+        marginBottom: 12,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         ...Platform.select({
             ios: {
                 shadowColor: '#000',
@@ -281,59 +311,17 @@ const styles = StyleSheet.create({
             }
         }),
     },
-    thumbnailContainer: {
-        width: 128,
-        height: 72,
-        borderRadius: 12,
-        overflow: 'hidden',
-        position: 'relative',
-    },
-    thumbnail: {
-        width: '100%',
-        height: '100%',
-    },
-    playOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    durationBadge: {
-        position: 'absolute',
-        bottom: 4,
-        right: 4,
-        backgroundColor: 'rgba(0,0,0,0.8)',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
-    },
-    durationText: {
-        color: '#fff',
-        fontSize: 11,
-        fontWeight: '600',
-    },
-    videoInfo: {
+    subjectInfo: {
         flex: 1,
-        justifyContent: 'space-between',
-        paddingVertical: 2,
     },
-    videoTitle: {
-        fontSize: 15,
+    subjectName: {
+        fontSize: 18,
         fontWeight: '600',
         color: '#ffffff',
-        lineHeight: 20,
+        marginBottom: 4,
     },
-    upvotesContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    upvotesText: {
-        fontSize: 13,
+    subjectTopics: {
+        fontSize: 14,
         color: '#8E8E93',
     },
     loadingCard: {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { auth0 } from '../lib/auth0';
@@ -17,10 +17,12 @@ export default function ProfileDetailScreen({ navigation }) {
     const loadUserProfile = async () => {
         try {
             setLoading(true);
-            
+
             // Get Auth0 user
             const userInfo = await auth0.getUser();
+            console.log('[Profile] Raw userInfo:', userInfo);
             const userData = userInfo?.data?.user || userInfo;
+            console.log('[Profile] Extracted userData:', userData);
             setUser(userData);
 
             if (userData?.sub) {
@@ -45,6 +47,18 @@ export default function ProfileDetailScreen({ navigation }) {
     };
 
     const handleSignOut = async () => {
+        if (Platform.OS === 'web') {
+            if (window.confirm('Are you sure you want to sign out?')) {
+                try {
+                    await auth0.signOut();
+                    navigation.replace('SignIn');
+                } catch (error) {
+                    alert('Failed to sign out');
+                }
+            }
+            return;
+        }
+
         Alert.alert(
             'Sign Out',
             'Are you sure you want to sign out?',
@@ -67,9 +81,9 @@ export default function ProfileDetailScreen({ navigation }) {
     };
 
     const handleEditProfile = () => {
-        navigation.navigate('ProfileEnter', { 
+        navigation.navigate('ProfileEnter', {
             existingProfile: profile,
-            userData: user 
+            userData: user
         });
     };
 
@@ -147,10 +161,10 @@ export default function ProfileDetailScreen({ navigation }) {
                         <Text style={styles.profileEmail}>{user?.email}</Text>
                         {profile?.role && (
                             <View style={styles.roleBadge}>
-                                <MaterialIcons 
-                                    name={profile.role === 'instructor' ? 'school' : 'person'} 
-                                    size={16} 
-                                    color="#3B82F6" 
+                                <MaterialIcons
+                                    name={profile.role === 'instructor' ? 'school' : 'person'}
+                                    size={16}
+                                    color="#3B82F6"
                                 />
                                 <Text style={styles.roleText}>
                                     {profile.role === 'instructor' ? 'Instructor' : 'Student'}
@@ -162,7 +176,7 @@ export default function ProfileDetailScreen({ navigation }) {
                     {/* Profile Details */}
                     <View style={styles.detailsSection}>
                         <Text style={styles.sectionTitle}>Personal Information</Text>
-                        
+
                         {profile?.department && (
                             <View style={styles.detailRow}>
                                 <View style={styles.detailIcon}>
@@ -225,8 +239,8 @@ export default function ProfileDetailScreen({ navigation }) {
                     {/* Actions Section */}
                     <View style={styles.actionsSection}>
                         <Text style={styles.sectionTitle}>Account</Text>
-                        
-                        <TouchableOpacity 
+
+                        <TouchableOpacity
                             style={styles.actionButton}
                             onPress={handleEditProfile}
                         >
@@ -237,7 +251,7 @@ export default function ProfileDetailScreen({ navigation }) {
                             <MaterialIcons name="chevron-right" size={24} color="#6B7280" />
                         </TouchableOpacity>
 
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={[styles.actionButton, styles.signOutButton]}
                             onPress={handleSignOut}
                         >

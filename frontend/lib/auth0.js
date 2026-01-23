@@ -2,20 +2,49 @@ import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-// Auth0 Configuration
-const AUTH0_DOMAIN = process.env.EXPO_PUBLIC_AUTH0_DOMAIN;
-const AUTH0_CLIENT_ID = process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID;
+// Auth0 Configuration - try env first, then fallback to app.json extra
+const AUTH0_DOMAIN = process.env.EXPO_PUBLIC_AUTH0_DOMAIN || Constants.expoConfig?.extra?.auth0Domain;
+const AUTH0_CLIENT_ID = process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID || Constants.expoConfig?.extra?.auth0ClientId;
+
+// Validate environment variables
+if (!AUTH0_DOMAIN || !AUTH0_CLIENT_ID) {
+    console.error('Auth0 Configuration Error:', {
+        domain: AUTH0_DOMAIN ? 'Set' : 'Missing',
+        clientId: AUTH0_CLIENT_ID ? 'Set' : 'Missing'
+    });
+    throw new Error('Auth0 environment variables are not configured. Check .env file.');
+}
 
 WebBrowser.maybeCompleteAuthSession();
 
 // Create the authorization request config
-const useProxy = Platform.select({ web: false, default: true });
+// Detect if running in Expo Go or standalone app
+const isExpoGo = Constants.appOwnership === 'expo';
+
+// For Expo Go, use the proxy redirect URI
+// For standalone apps, use custom scheme
+const redirectUri = isExpoGo
+    ? AuthSession.makeRedirectUri({
+        useProxy: true,
+        // This will use Expo's proxy server: https://auth.expo.io/@your-username/your-app
+    })
+    : Platform.select({
+        android: `com.prosahil2150.campusappnew://${AUTH0_DOMAIN}/android/com.prosahil2150.campusappnew/callback`,
+        ios: `com.prosahil2150.campusappnew://${AUTH0_DOMAIN}/ios/com.prosahil2150.campusappnew/callback`,
+        default: AuthSession.makeRedirectUri({
+            scheme: 'com.prosahil2150.campusappnew'
+        })
+    });
+
+console.log('Auth0 Redirect URI:', redirectUri);
+console.log('Running in Expo Go:', isExpoGo);
 
 export const auth0Config = {
     clientId: AUTH0_CLIENT_ID,
     domain: AUTH0_DOMAIN,
-    redirectUri: AuthSession.makeRedirectUri({ useProxy }),
+    redirectUri: redirectUri,
     scopes: ['openid', 'profile', 'email'],
 };
 
@@ -32,23 +61,41 @@ const TOKEN_KEY = '@auth0_token';
 // Store for user session (in-memory cache)
 let currentUser = null;
 let accessToken = null;
+let sessionLoadPromise = null;
 
 // Load session from storage
 const loadSession = async () => {
-    try {
-        const [userStr, token] = await Promise.all([
-            AsyncStorage.getItem(USER_KEY),
-            AsyncStorage.getItem(TOKEN_KEY),
-        ]);
-        
-        if (userStr && token) {
-            currentUser = JSON.parse(userStr);
-            accessToken = token;
-            console.log('Session loaded from storage');
-        }
-    } catch (error) {
-        console.error('Error loading session:', error);
+    // If a load is already in progress, return that promise
+    if (sessionLoadPromise) {
+        return sessionLoadPromise;
     }
+
+    sessionLoadPromise = (async () => {
+        try {
+            console.log('[Auth0] Loading session from storage...');
+            const [userStr, token] = await Promise.all([
+                AsyncStorage.getItem(USER_KEY),
+                AsyncStorage.getItem(TOKEN_KEY),
+            ]);
+
+            if (userStr && token) {
+                currentUser = JSON.parse(userStr);
+                accessToken = token;
+                console.log('[Auth0] Session loaded successfully:', currentUser.sub);
+                return currentUser; // Return user for consistent behavior
+            } else {
+                console.log('[Auth0] No session found in storage');
+                return null;
+            }
+        } catch (error) {
+            console.error('[Auth0] Error loading session:', error);
+            return null;
+        } finally {
+            sessionLoadPromise = null;
+        }
+    })();
+
+    return sessionLoadPromise;
 };
 
 // Save session to storage
@@ -58,9 +105,11 @@ const saveSession = async (user, token) => {
             AsyncStorage.setItem(USER_KEY, JSON.stringify(user)),
             AsyncStorage.setItem(TOKEN_KEY, token),
         ]);
-        console.log('Session saved to storage');
+        currentUser = user; // Update in-memory
+        accessToken = token;
+        console.log('[Auth0] Session saved to storage');
     } catch (error) {
-        console.error('Error saving session:', error);
+        console.error('[Auth0] Error saving session:', error);
     }
 };
 
@@ -71,9 +120,11 @@ const clearSession = async () => {
             AsyncStorage.removeItem(USER_KEY),
             AsyncStorage.removeItem(TOKEN_KEY),
         ]);
-        console.log('Session cleared from storage');
+        currentUser = null;
+        accessToken = null;
+        console.log('[Auth0] Session cleared from storage');
     } catch (error) {
-        console.error('Error clearing session:', error);
+        console.error('[Auth0] Error clearing session:', error);
     }
 };
 
@@ -95,13 +146,13 @@ export const auth0 = {
                 redirectUri: auth0Config.redirectUri,
             });
 
-            const result = await request.promptAsync(discovery, { useProxy });
+            const result = await request.promptAsync(discovery);
             console.log('Auth result:', result);
 
             if (result.type === 'success') {
                 const { code } = result.params;
                 console.log('Authorization code received');
-                
+
                 // Exchange code for token with PKCE
                 const tokenResponse = await AuthSession.exchangeCodeAsync(
                     {
@@ -138,12 +189,12 @@ export const auth0 = {
 
                 currentUser = JSON.parse(userText);
                 accessToken = tokenResponse.accessToken;
-                
+
                 // Save session to persistent storage
                 await saveSession(currentUser, accessToken);
-                
+
                 console.log('User authenticated:', currentUser);
-                
+
                 return { user: currentUser, error: null };
             }
 
@@ -157,8 +208,10 @@ export const auth0 = {
     async getUser() {
         // Load from storage if not in memory
         if (!currentUser) {
+            console.log('[Auth0] getUser: No current user, loading session...');
             await loadSession();
         }
+        console.log('[Auth0] getUser returning:', currentUser ? 'User found' : 'No user');
         return { data: { user: currentUser }, error: null };
     },
 
@@ -167,26 +220,28 @@ export const auth0 = {
         if (!currentUser) {
             await loadSession();
         }
-        return { 
-            data: { 
-                session: currentUser ? { user: currentUser, access_token: accessToken } : null 
-            }, 
-            error: null 
+        return {
+            data: {
+                session: currentUser ? { user: currentUser, access_token: accessToken } : null
+            },
+            error: null
         };
     },
 
     async signOut() {
         currentUser = null;
         accessToken = null;
-        
+
         // Clear from persistent storage
         await clearSession();
-        
-        // Optionally clear Auth0 session
-        await WebBrowser.openBrowserAsync(
-            `https://${auth0Config.domain}/v2/logout?client_id=${auth0Config.clientId}&returnTo=${encodeURIComponent(auth0Config.redirectUri)}`
-        );
-        
+
+        // Optionally clear Auth0 session (Native only)
+        if (Platform.OS !== 'web') {
+            await WebBrowser.openBrowserAsync(
+                `https://${auth0Config.domain}/v2/logout?client_id=${auth0Config.clientId}&returnTo=${encodeURIComponent(auth0Config.redirectUri)}`
+            );
+        }
+
         return { error: null };
     },
 };

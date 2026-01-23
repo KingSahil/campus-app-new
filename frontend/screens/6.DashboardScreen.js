@@ -14,7 +14,7 @@ const generateUUIDFromString = (str) => {
         hash = ((hash << 5) - hash) + str.charCodeAt(i);
         hash = hash & hash;
     }
-    
+
     // Convert to UUID format
     const hex = Math.abs(hash).toString(16).padStart(8, '0');
     return `${hex.substr(0, 8)}-${hex.substr(0, 4)}-4${hex.substr(0, 3)}-${hex.substr(0, 4)}-${hex.substr(0, 12)}`.padEnd(36, '0');
@@ -52,17 +52,17 @@ const calculateDistanceVincenty = (lat1, lon1, lat2, lon2) => {
         const sinLambda = Math.sin(lambda), cosLambda = Math.cos(lambda);
         sinSigma = Math.sqrt((cosU2 * sinLambda) * (cosU2 * sinLambda) +
             (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda) * (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda));
-        
+
         if (sinSigma === 0) return 0; // Co-incident points
-        
+
         cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cosLambda;
         sigma = Math.atan2(sinSigma, cosSigma);
         const sinAlpha = cosU1 * cosU2 * sinLambda / sinSigma;
         cosSqAlpha = 1 - sinAlpha * sinAlpha;
         cos2SigmaM = cosSigma - 2 * sinU1 * sinU2 / cosSqAlpha;
-        
+
         if (isNaN(cos2SigmaM)) cos2SigmaM = 0; // Equatorial line
-        
+
         const C = f / 16 * cosSqAlpha * (4 + f * (4 - 3 * cosSqAlpha));
         lambdaP = lambda;
         lambda = L + (1 - C) * f * sinAlpha *
@@ -84,7 +84,7 @@ const calculateDistanceVincenty = (lat1, lon1, lat2, lon2) => {
 const calculate3DDistance = (lat1, lon1, alt1, lat2, lon2, alt2) => {
     const horizontalDistance = calculateDistanceVincenty(lat1, lon1, lat2, lon2);
     const verticalDistance = Math.abs(alt2 - alt1);
-    
+
     // Pythagorean theorem for 3D distance
     return Math.sqrt(horizontalDistance * horizontalDistance + verticalDistance * verticalDistance);
 };
@@ -93,7 +93,7 @@ const calculate3DDistance = (lat1, lon1, alt1, lat2, lon2, alt2) => {
 const getAccurateLocation = async () => {
     const samples = [];
     let bestSample = null;
-    
+
     for (let i = 0; i < LOCATION_SAMPLES; i++) {
         try {
             const location = await Location.getCurrentPositionAsync({
@@ -101,17 +101,17 @@ const getAccurateLocation = async () => {
                 timeInterval: 500,
                 distanceInterval: 0,
             });
-            
+
             // Track the best sample
             if (!bestSample || (location.coords.accuracy < bestSample.coords.accuracy)) {
                 bestSample = location;
             }
-            
+
             // Collect all samples with reasonable accuracy
             if (location.coords.accuracy && location.coords.accuracy <= MAX_GPS_ACCURACY) {
                 samples.push(location);
             }
-            
+
             // Wait before next sample (except on last iteration)
             if (i < LOCATION_SAMPLES - 1) {
                 await new Promise(resolve => setTimeout(resolve, SAMPLE_DELAY));
@@ -120,17 +120,17 @@ const getAccurateLocation = async () => {
             console.error(`Sample ${i + 1} failed:`, error);
         }
     }
-    
+
     // If we have at least one good sample, use weighted average
     if (samples.length > 0) {
         // Sort by accuracy and take the best ones
         samples.sort((a, b) => (a.coords.accuracy || Infinity) - (b.coords.accuracy || Infinity));
         const bestSamples = samples.slice(0, Math.min(3, samples.length));
-        
+
         // Calculate weighted average based on accuracy (more weight to more accurate readings)
         let totalWeight = 0;
         let weightedLat = 0, weightedLon = 0, weightedAlt = 0;
-        
+
         bestSamples.forEach(sample => {
             const weight = 1 / (sample.coords.accuracy || 1); // Better accuracy = higher weight
             totalWeight += weight;
@@ -138,7 +138,7 @@ const getAccurateLocation = async () => {
             weightedLon += sample.coords.longitude * weight;
             weightedAlt += (sample.coords.altitude || 0) * weight;
         });
-        
+
         return {
             latitude: weightedLat / totalWeight,
             longitude: weightedLon / totalWeight,
@@ -148,7 +148,7 @@ const getAccurateLocation = async () => {
             samplesUsed: bestSamples.length,
         };
     }
-    
+
     // Fallback: If no samples met the threshold but we have at least one reading, use the best one
     if (bestSample) {
         console.warn(`Using fallback GPS reading with accuracy: ${bestSample.coords.accuracy}m`);
@@ -161,7 +161,7 @@ const getAccurateLocation = async () => {
             samplesUsed: 1,
         };
     }
-    
+
     // No GPS readings at all
     throw new Error('Could not get GPS readings. Please check that location services are enabled and you have moved away from buildings or indoor areas for better signal.');
 };
@@ -179,7 +179,7 @@ export default function DashboardScreen({ navigation }) {
     useEffect(() => {
         getUserInfo();
         fetchActiveSessions();
-        
+
         // Refresh sessions every 30 seconds
         const interval = setInterval(fetchActiveSessions, 30000);
         return () => clearInterval(interval);
@@ -200,7 +200,7 @@ export default function DashboardScreen({ navigation }) {
 
     const handleSearch = async (query) => {
         setSearchQuery(query);
-        
+
         if (!query.trim()) {
             setShowSearchResults(false);
             setSearchResults([]);
@@ -246,7 +246,7 @@ export default function DashboardScreen({ navigation }) {
                 videos.forEach(video => {
                     const subjectName = video.topics?.subjects?.name || 'Unknown Subject';
                     const topicName = video.topics?.name || 'Unknown Topic';
-                    
+
                     results.push({
                         type: 'video',
                         title: video.title,
@@ -359,7 +359,7 @@ export default function DashboardScreen({ navigation }) {
         try {
             // Request location permissions
             const { status } = await Location.requestForegroundPermissionsAsync();
-            
+
             if (status !== 'granted') {
                 Alert.alert(
                     'Location Permission Required',
@@ -437,6 +437,10 @@ export default function DashboardScreen({ navigation }) {
 
         try {
             // Generate a consistent student_id from email
+            if (!userEmail) {
+                Alert.alert('Error', 'User email is missing. Please sign in again.');
+                return;
+            }
             const studentId = generateUUIDFromString(userEmail);
 
             // Check if already marked
@@ -474,7 +478,7 @@ export default function DashboardScreen({ navigation }) {
             }
 
             Alert.alert(
-                'Success', 
+                'Success',
                 `Attendance marked successfully!\n\nVerified distance: ${distance}m\nGPS accuracy: ±${accuracy}m`
             );
         } catch (error) {
@@ -488,7 +492,7 @@ export default function DashboardScreen({ navigation }) {
         { icon: 'menu-book', label: 'Learning', color: '#06B6D4', onPress: () => navigation.navigate('LearningHub') },
         { icon: 'restaurant', label: 'Food', color: '#EF4444' },
         { icon: 'local-library', label: 'Library', color: '#10B981' },
-        { icon: 'campaign', label: 'Student Voice', color: '#A855F7' },        
+        { icon: 'campaign', label: 'Student Voice', color: '#A855F7' },
         { icon: 'storefront', label: 'Campus Marketplace', color: '#EC4899' },
 
     ];
@@ -508,20 +512,20 @@ export default function DashboardScreen({ navigation }) {
                                 </Text>
                             </View>
                             <View style={styles.headerButtons}>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={styles.notificationButton}
                                     onPress={() => navigation.navigate('Notices')}
                                 >
                                     <MaterialIcons name="notifications" size={24} color="#ffffff" />
                                 </TouchableOpacity>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={styles.profilePicContainer}
                                     onPress={() => navigation.navigate('ProfileDetail')}
                                 >
                                     <Image
-                                        source={{ 
-                                            uri: user?.picture || 
-                                            'https://lh3.googleusercontent.com/aida-public/AB6AXuC_UmOn2Ca2nFEDCfiijmx_SEi5EH7D2Y6catOJoHdc88XpwtWj5zuuQ5dwNK3a7Vj-26z0EWTwIWx9VZAGwkLntb__QkElZ01Us3OAPD9MqMORkDD0exnYBC5tsdW0CqAXJPvj5vQ2xXB5z23WE7ht34HAKNIQ2JaMajtyMPmUoBdGtODTxv_B148bL522wslFyfrgwmODlqI6XuD9T1Go9MhoAdT0_OCGvuW7aPDZeK-3c0mk5T1l3noLxaYZqL_N6G4BNePt4Xs' 
+                                        source={{
+                                            uri: user?.picture ||
+                                                'https://lh3.googleusercontent.com/aida-public/AB6AXuC_UmOn2Ca2nFEDCfiijmx_SEi5EH7D2Y6catOJoHdc88XpwtWj5zuuQ5dwNK3a7Vj-26z0EWTwIWx9VZAGwkLntb__QkElZ01Us3OAPD9MqMORkDD0exnYBC5tsdW0CqAXJPvj5vQ2xXB5z23WE7ht34HAKNIQ2JaMajtyMPmUoBdGtODTxv_B148bL522wslFyfrgwmODlqI6XuD9T1Go9MhoAdT0_OCGvuW7aPDZeK-3c0mk5T1l3noLxaYZqL_N6G4BNePt4Xs'
                                         }}
                                         style={styles.profilePic}
                                     />
@@ -541,7 +545,7 @@ export default function DashboardScreen({ navigation }) {
                                 returnKeyType="search"
                             />
                             {searchQuery.length > 0 && (
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={() => {
                                         setSearchQuery('');
                                         setShowSearchResults(false);
@@ -571,7 +575,7 @@ export default function DashboardScreen({ navigation }) {
                                 ) : (
                                     <ScrollView style={styles.searchResultsList} nestedScrollEnabled>
                                         {searchResults.map((result, index) => (
-                                            <TouchableOpacity 
+                                            <TouchableOpacity
                                                 key={index}
                                                 style={styles.searchResultItem}
                                                 onPress={result.action}
@@ -595,14 +599,14 @@ export default function DashboardScreen({ navigation }) {
                         <View style={styles.section}>
                             <View style={styles.sectionHeader}>
                                 <Text style={styles.sectionTitle}>Active Sessions</Text>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={fetchActiveSessions}
                                     activeOpacity={0.7}
                                 >
                                     <MaterialIcons name="refresh" size={20} color="#8E8E93" />
                                 </TouchableOpacity>
                             </View>
-                            
+
                             {loadingSessions ? (
                                 <View style={styles.loadingCard}>
                                     <ActivityIndicator color="#0A84FF" />
@@ -626,7 +630,7 @@ export default function DashboardScreen({ navigation }) {
                                                     {session.classes?.subject || session.classes?.name || 'Class'}
                                                 </Text>
                                                 <Text style={styles.attendanceTime}>
-                                                    {session.classes?.start_time && session.classes?.end_time 
+                                                    {session.classes?.start_time && session.classes?.end_time
                                                         ? `${formatTime(session.classes.start_time)} - ${formatTime(session.classes.end_time)}`
                                                         : 'Active Now'
                                                     }
@@ -639,8 +643,8 @@ export default function DashboardScreen({ navigation }) {
                                                 )}
                                             </View>
                                         </View>
-                                        <TouchableOpacity 
-                                            style={styles.markButton} 
+                                        <TouchableOpacity
+                                            style={styles.markButton}
                                             activeOpacity={0.8}
                                             onPress={() => handleMarkAttendance(session)}
                                         >
@@ -684,9 +688,9 @@ export default function DashboardScreen({ navigation }) {
                             <View style={styles.modalHeader}>
                                 <MaterialIcons name="check-circle" size={48} color="#10B981" />
                             </View>
-                            
+
                             <Text style={styles.modalTitle}>Mark Attendance</Text>
-                            
+
                             <View style={styles.modalInfo}>
                                 <View style={styles.infoRow}>
                                     <MaterialIcons name="location-on" size={20} color="#10B981" />

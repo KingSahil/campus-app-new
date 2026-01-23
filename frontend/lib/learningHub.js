@@ -17,7 +17,7 @@ export async function getSubjects() {
     const formattedData = data?.map(subject => ({
         ...subject,
         topic_count: subject.topics?.length || 0,
-        topics_preview: subject.topics?.length > 0 
+        topics_preview: subject.topics?.length > 0
             ? `${subject.topics.length} ${subject.topics.length === 1 ? 'topic' : 'topics'}`
             : 'No topics yet'
     }));
@@ -103,36 +103,42 @@ export async function deleteTopic(id) {
 function getYouTubeThumbnail(url) {
     // Try to extract video ID from various YouTube URL formats
     let videoId = null;
-    
+
     // Standard watch URL: https://www.youtube.com/watch?v=VIDEO_ID
     const watchMatch = url.match(/[?&]v=([^&]+)/);
     if (watchMatch) {
         videoId = watchMatch[1];
     }
-    
+
     // Short URL: https://youtu.be/VIDEO_ID
     const shortMatch = url.match(/youtu\.be\/([^?&]+)/);
     if (shortMatch) {
         videoId = shortMatch[1];
     }
-    
+
     // Shorts URL: https://www.youtube.com/shorts/VIDEO_ID
     const shortsMatch = url.match(/\/shorts\/([^?&]+)/);
     if (shortsMatch) {
         videoId = shortsMatch[1];
     }
-    
+
     // Embed URL: https://www.youtube.com/embed/VIDEO_ID
     const embedMatch = url.match(/\/embed\/([^?&]+)/);
     if (embedMatch) {
         videoId = embedMatch[1];
     }
-    
+
+    // Live URL: https://www.youtube.com/live/ficXWxuM6sE
+    const liveMatch = url.match(/\/live\/([^?&]+)/);
+    if (liveMatch) {
+        videoId = liveMatch[1];
+    }
+
     // If we found a video ID, return the high-quality thumbnail
     if (videoId) {
         return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
     }
-    
+
     // Fallback to a placeholder if not a YouTube URL
     return `https://picsum.photos/320/180?random=${Date.now()}`;
 }
@@ -150,14 +156,40 @@ export async function getVideosByTopic(topicId) {
 
 export async function createVideo(topicId, title, url) {
     const thumbnail = getYouTubeThumbnail(url);
-    
+    let duration = '0:00';
+
+    try {
+        const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+        if (BACKEND_URL) {
+            const response = await fetch(`${BACKEND_URL}/video-info`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    video_url: url
+                }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.duration) {
+                    duration = data.duration;
+                }
+            }
+        }
+    } catch (e) {
+        console.log('Error fetching duration:', e);
+    }
+
     const { data, error } = await supabase
         .from('videos')
-        .insert([{ 
-            topic_id: topicId, 
-            title, 
+        .insert([{
+            topic_id: topicId,
+            title,
             url,
-            thumbnail
+            thumbnail,
+            duration
         }])
         .select()
         .single();
