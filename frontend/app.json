@@ -54,6 +54,10 @@
     },
     "updates": {
       "url": "https://u.expo.dev/b02aa5d1-fa5c-4fe9-bb42-a79a596f4f4f"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     }
   }
 }
