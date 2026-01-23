@@ -227,3 +227,36 @@ export async function upvoteVideo(id, currentUpvotes) {
 
     return { data, error };
 }
+
+export async function refreshVideoDuration(video) {
+    if (video.duration && video.duration !== '0:00') return video;
+
+    try {
+        const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://backend-production-4a1b.up.railway.app';
+
+        const response = await fetch(`${BACKEND_URL}/video-info`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                video_url: video.url
+            }),
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.duration && data.duration !== '0:00') {
+                // Update Supabase
+                await updateVideo(video.id, { duration: data.duration });
+
+                // Return updated video object
+                return { ...video, duration: data.duration };
+            }
+        }
+    } catch (e) {
+        console.log('Error refreshing duration for:', video.title, e);
+    }
+
+    return video;
+}

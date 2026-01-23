@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, Modal, Tex
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { getVideosByTopic, createVideo, deleteVideo } from '../lib/learningHub';
+import { getVideosByTopic, createVideo, deleteVideo, refreshVideoDuration } from '../lib/learningHub';
 import Background from '../components/Background';
 
 export default function VideosListScreen({ navigation, route }) {
@@ -47,7 +47,20 @@ export default function VideosListScreen({ navigation, route }) {
         if (error) {
             Alert.alert('Error', 'Failed to load videos: ' + error.message);
         } else {
-            setVideos(data || []);
+            const loadedVideos = data || [];
+            setVideos(loadedVideos);
+
+            // Check for missing durations and update in background
+            loadedVideos.forEach(async (video) => {
+                if (!video.duration || video.duration === '0:00') {
+                    const updatedVideo = await refreshVideoDuration(video);
+                    if (updatedVideo.duration !== '0:00') {
+                        setVideos(currentVideos =>
+                            currentVideos.map(v => v.id === updatedVideo.id ? updatedVideo : v)
+                        );
+                    }
+                }
+            });
         }
         setLoading(false);
     };
