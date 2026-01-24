@@ -5,6 +5,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { getSubjects, createSubject, deleteSubject } from '../lib/learningHub';
 import Background from '../components/Background';
 
+const subjectsCache = {};
+
 export default function LearningHubScreen({ navigation }) {
     const [subjects, setSubjects] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -17,7 +19,13 @@ export default function LearningHubScreen({ navigation }) {
         loadSubjects();
     }, []);
 
-    const loadSubjects = async () => {
+    const loadSubjects = async (forceRefresh = false) => {
+        if (!forceRefresh && subjectsCache['all']) {
+            setSubjects(subjectsCache['all']);
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         console.log('Loading subjects...');
         const { data, error } = await getSubjects();
@@ -27,12 +35,13 @@ export default function LearningHubScreen({ navigation }) {
         if (error) {
             console.error('Error loading subjects:', error);
             Alert.alert('Error', 'Failed to load subjects: ' + error.message);
-            setLoading(false);
         } else {
             console.log('Subjects loaded:', data);
-            setSubjects(data || []);
-            setLoading(false);
+            const loadedSubjects = data || [];
+            setSubjects(loadedSubjects);
+            subjectsCache['all'] = loadedSubjects;
         }
+        setLoading(false);
     };
 
     const handleAddSubject = async () => {
@@ -50,7 +59,10 @@ export default function LearningHubScreen({ navigation }) {
             return;
         }
 
-        setSubjects([data, ...subjects]);
+        const updatedSubjects = [data, ...subjects];
+        setSubjects(updatedSubjects);
+        subjectsCache['all'] = updatedSubjects;
+
         setNewSubjectName('');
         setModalVisible(false);
         Alert.alert('Success', 'Subject added successfully!');
@@ -60,7 +72,9 @@ export default function LearningHubScreen({ navigation }) {
         if (Platform.OS === 'web') {
             if (window.confirm('Are you sure you want to delete this subject?')) {
                 const previousSubjects = [...subjects];
-                setSubjects(subjects.filter(s => s.id !== id));
+                const updatedSubjects = subjects.filter(s => s.id !== id);
+                setSubjects(updatedSubjects);
+                subjectsCache['all'] = updatedSubjects;
 
                 const { error } = await deleteSubject(id);
                 if (error) {
@@ -82,7 +96,9 @@ export default function LearningHubScreen({ navigation }) {
                     onPress: async () => {
                         // Optimistic update: filter out immediately
                         const previousSubjects = [...subjects];
-                        setSubjects(subjects.filter(s => s.id !== id));
+                        const updatedSubjects = subjects.filter(s => s.id !== id);
+                        setSubjects(updatedSubjects);
+                        subjectsCache['all'] = updatedSubjects;
 
                         const { error } = await deleteSubject(id);
                         if (error) {
@@ -244,6 +260,7 @@ const styles = StyleSheet.create({
     },
     safeArea: {
         flex: 1,
+        ...Platform.select({ web: { paddingTop: 20 } }),
     },
     scrollView: {
         flex: 1,

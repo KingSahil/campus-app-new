@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { auth0 } from '../lib/auth0';
+import Background from '../components/Background';
 
 // Helper function to generate a consistent UUID from a string
 const generateUUIDFromString = (str) => {
@@ -13,7 +14,7 @@ const generateUUIDFromString = (str) => {
         hash = ((hash << 5) - hash) + str.charCodeAt(i);
         hash = hash & hash;
     }
-    
+
     // Convert to UUID format
     const hex = Math.abs(hash).toString(16).padStart(8, '0');
     return `${hex.substr(0, 8)}-${hex.substr(0, 4)}-4${hex.substr(0, 3)}-${hex.substr(0, 4)}-${hex.substr(0, 12)}`.padEnd(36, '0');
@@ -38,12 +39,12 @@ export default function StudentAttendanceScreen({ navigation }) {
     const fetchAttendanceRecords = async () => {
         try {
             setLoading(true);
-            
+
             // Get user info from Auth0
             const userInfo = await auth0.getUser();
             const userData = userInfo?.data?.user || userInfo;
             const userEmail = userData?.email;
-            
+
             if (!userEmail) {
                 Alert.alert('Error', 'Unable to get your email. Please sign in again.');
                 setLoading(false);
@@ -144,7 +145,7 @@ export default function StudentAttendanceScreen({ navigation }) {
                 <Text style={styles.percentageText}>{stats.percentage}%</Text>
                 <Text style={styles.percentageLabel}>Attendance Rate</Text>
             </View>
-            
+
             <View style={styles.statsGrid}>
                 <View style={styles.statItem}>
                     <View style={[styles.statIconContainer, { backgroundColor: '#10B9811A' }]}>
@@ -153,7 +154,7 @@ export default function StudentAttendanceScreen({ navigation }) {
                     <Text style={styles.statValue}>{stats.present}</Text>
                     <Text style={styles.statLabel}>Present</Text>
                 </View>
-                
+
                 <View style={styles.statItem}>
                     <View style={[styles.statIconContainer, { backgroundColor: '#F59E0B1A' }]}>
                         <MaterialIcons name="schedule" size={24} color="#F59E0B" />
@@ -161,7 +162,7 @@ export default function StudentAttendanceScreen({ navigation }) {
                     <Text style={styles.statValue}>{stats.late}</Text>
                     <Text style={styles.statLabel}>Late</Text>
                 </View>
-                
+
                 <View style={styles.statItem}>
                     <View style={[styles.statIconContainer, { backgroundColor: '#EF44441A' }]}>
                         <MaterialIcons name="cancel" size={24} color="#EF4444" />
@@ -183,7 +184,7 @@ export default function StudentAttendanceScreen({ navigation }) {
                     All ({attendanceRecords.length})
                 </Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
                 style={[styles.filterButton, filter === 'present' && styles.filterButtonActive]}
                 onPress={() => setFilter('present')}
@@ -192,7 +193,7 @@ export default function StudentAttendanceScreen({ navigation }) {
                     Present ({stats.present})
                 </Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
                 style={[styles.filterButton, filter === 'late' && styles.filterButtonActive]}
                 onPress={() => setFilter('late')}
@@ -201,7 +202,7 @@ export default function StudentAttendanceScreen({ navigation }) {
                     Late ({stats.late})
                 </Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
                 style={[styles.filterButton, filter === 'absent' && styles.filterButtonActive]}
                 onPress={() => setFilter('absent')}
@@ -225,10 +226,10 @@ export default function StudentAttendanceScreen({ navigation }) {
                     </Text>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: getStatusColor(record.status) + '1A' }]}>
-                    <MaterialIcons 
-                        name={getStatusIcon(record.status)} 
-                        size={18} 
-                        color={getStatusColor(record.status)} 
+                    <MaterialIcons
+                        name={getStatusIcon(record.status)}
+                        size={18}
+                        color={getStatusColor(record.status)}
                     />
                     <Text style={[styles.statusText, { color: getStatusColor(record.status) }]}>
                         {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
@@ -249,10 +250,11 @@ export default function StudentAttendanceScreen({ navigation }) {
 
     return (
         <View style={styles.container}>
+            <Background />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 {/* Main Content */}
-                <ScrollView 
-                    style={styles.scrollView} 
+                <ScrollView
+                    style={styles.scrollView}
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
@@ -263,7 +265,7 @@ export default function StudentAttendanceScreen({ navigation }) {
                                 <Text style={styles.title}>My Attendance</Text>
                                 <Text style={styles.subtitle}>{stats.total} Sessions Recorded</Text>
                             </View>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={styles.refreshButton}
                                 onPress={fetchAttendanceRecords}
                                 activeOpacity={0.7}
@@ -281,13 +283,13 @@ export default function StudentAttendanceScreen({ navigation }) {
                         {/* Attendance Records */}
                         <View style={[styles.section, { marginBottom: 100 }]}>
                             <Text style={styles.sectionTitle}>Attendance History</Text>
-                            
+
                             {getFilteredRecords().length === 0 ? (
                                 <View style={styles.emptyState}>
                                     <MaterialIcons name="event-busy" size={48} color="#8E8E93" />
                                     <Text style={styles.emptyStateText}>No attendance records found</Text>
                                     <Text style={styles.emptyStateSubtext}>
-                                        {filter === 'all' 
+                                        {filter === 'all'
                                             ? 'Your attendance records will appear here'
                                             : `No ${filter} records found`
                                         }
@@ -311,6 +313,7 @@ const styles = StyleSheet.create({
     },
     safeArea: {
         flex: 1,
+        ...Platform.select({ web: { paddingTop: 20 } }),
     },
     loadingContainer: {
         flex: 1,

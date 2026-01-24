@@ -6,6 +6,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getVideosByTopic, createVideo, deleteVideo, refreshVideoDuration } from '../lib/learningHub';
 import Background from '../components/Background';
 
+const videosCache = {};
+
 export default function VideosListScreen({ navigation, route }) {
     const { subjectId, subjectName, topicId, topicName, subject: subjectObj, topic: topicObj } = route.params || {};
 
@@ -38,26 +40,39 @@ export default function VideosListScreen({ navigation, route }) {
         }, [topic?.id])
     );
 
-    const loadVideos = async () => {
+    const loadVideos = async (forceRefresh = false) => {
         if (!topic?.id) return;
 
-        setLoading(true);
+        // Use cache immediately for better UX
+        if (!forceRefresh && videosCache[topic.id]) {
+            setVideos(videosCache[topic.id]);
+            setLoading(false);
+            // allow fetches to proceed in background to update upvotes
+        } else {
+            setLoading(true);
+        }
+
         const { data, error } = await getVideosByTopic(topic.id);
 
         if (error) {
             Alert.alert('Error', 'Failed to load videos: ' + error.message);
         } else {
             const loadedVideos = data || [];
+
+            // Only update if data changed (optional optimization, but simple set is fine)
             setVideos(loadedVideos);
+            videosCache[topic.id] = loadedVideos;
 
             // Check for missing durations and update in background
             loadedVideos.forEach(async (video) => {
                 if (!video.duration || video.duration === '0:00') {
                     const updatedVideo = await refreshVideoDuration(video);
                     if (updatedVideo.duration !== '0:00') {
-                        setVideos(currentVideos =>
-                            currentVideos.map(v => v.id === updatedVideo.id ? updatedVideo : v)
-                        );
+                        setVideos(currentVideos => {
+                            const newVideos = currentVideos.map(v => v.id === updatedVideo.id ? updatedVideo : v);
+                            videosCache[topic.id] = newVideos; // Update cache with duration
+                            return newVideos;
+                        });
                     }
                 }
             });
@@ -85,7 +100,11 @@ export default function VideosListScreen({ navigation, route }) {
             return;
         }
 
-        setVideos([data, ...videos]);
+        const updatedVideos = [data, ...videos];
+        setVideos(updatedVideos);
+        if (topic?.id) {
+            videosCache[topic.id] = updatedVideos;
+        }
         setNewVideoTitle('');
         setNewVideoUrl('');
         setModalVisible(false);
@@ -96,7 +115,11 @@ export default function VideosListScreen({ navigation, route }) {
         if (Platform.OS === 'web') {
             if (window.confirm('Are you sure you want to delete this video?')) {
                 const previousVideos = [...videos];
-                setVideos(videos.filter(v => v.id !== id));
+                const updatedVideos = videos.filter(v => v.id !== id);
+                setVideos(updatedVideos);
+                if (topic?.id) {
+                    videosCache[topic.id] = updatedVideos;
+                }
 
                 const { error } = await deleteVideo(id);
                 if (error) {
@@ -117,7 +140,11 @@ export default function VideosListScreen({ navigation, route }) {
                     style: 'destructive',
                     onPress: async () => {
                         const previousVideos = [...videos];
-                        setVideos(videos.filter(v => v.id !== id));
+                        const updatedVideos = videos.filter(v => v.id !== id);
+                        setVideos(updatedVideos);
+                        if (topic?.id) {
+                            videosCache[topic.id] = updatedVideos;
+                        }
 
                         const { error } = await deleteVideo(id);
                         if (error) {
@@ -311,6 +338,7 @@ const styles = StyleSheet.create({
     },
     safeArea: {
         flex: 1,
+        ...Platform.select({ web: { paddingTop: 20 } }),
     },
     scrollView: {
         flex: 1,

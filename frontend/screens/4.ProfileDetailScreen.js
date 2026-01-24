@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { auth0 } from '../lib/auth0';
 import { supabase } from '../lib/supabase';
+import Background from '../components/Background';
 
 export default function ProfileDetailScreen({ navigation }) {
     const [user, setUser] = useState(null);
@@ -120,6 +121,7 @@ export default function ProfileDetailScreen({ navigation }) {
 
     return (
         <View style={styles.container}>
+            <Background />
             <SafeAreaView style={styles.safeArea}>
                 {/* Header */}
                 <View style={styles.header}>
@@ -279,6 +281,7 @@ const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
         backgroundColor: '#1F2937',
+        ...Platform.select({ web: { paddingTop: 20 } }),
     },
     header: {
         flexDirection: 'row',

@@ -3,6 +3,9 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Platform, TextInp
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
+import Background from '../components/Background';
+
+const attendanceCache = {};
 
 export default function AttendanceListScreen({ navigation, route }) {
     const [searchQuery, setSearchQuery] = useState('');
@@ -23,6 +26,15 @@ export default function AttendanceListScreen({ navigation, route }) {
     }, [sessionId]);
 
     const fetchAttendanceData = async () => {
+        // Use cache for immediate display if available
+        if (attendanceCache[sessionId] && loading) {
+            const cached = attendanceCache[sessionId];
+            setSessionInfo(cached.session);
+            setPresentStudents(cached.present);
+            setAbsentStudents(cached.absent);
+            setLoading(false);
+        }
+
         try {
             // Fetch session info
             const { data: session, error: sessionError } = await supabase
@@ -43,8 +55,6 @@ export default function AttendanceListScreen({ navigation, route }) {
                 return;
             }
 
-            setSessionInfo(session);
-
             // Fetch attendance records
             const { data: records, error: recordsError } = await supabase
                 .from('attendance_records')
@@ -61,8 +71,12 @@ export default function AttendanceListScreen({ navigation, route }) {
             const present = records.filter(r => r.status === 'present');
             const absent = records.filter(r => r.status === 'absent');
 
+            setSessionInfo(session);
             setPresentStudents(present);
             setAbsentStudents(absent);
+
+            // Update cache
+            attendanceCache[sessionId] = { session, present, absent };
         } catch (error) {
             console.error('Error:', error);
         } finally {
@@ -82,7 +96,7 @@ export default function AttendanceListScreen({ navigation, route }) {
     const getAvatarColor = (name) => {
         if (!name) return '#8E8E93';
         const colors = [
-            '#3B82F6', '#A855F7', '#EC4899', '#10B981', 
+            '#3B82F6', '#A855F7', '#EC4899', '#10B981',
             '#F59E0B', '#EF4444', '#14B8A6', '#6366F1'
         ];
         const index = name.charCodeAt(0) % colors.length;
@@ -101,10 +115,11 @@ export default function AttendanceListScreen({ navigation, route }) {
 
     return (
         <View style={styles.container}>
+            <Background />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.backButton}
                         onPress={() => navigation.goBack()}
                         activeOpacity={0.7}
@@ -117,7 +132,7 @@ export default function AttendanceListScreen({ navigation, route }) {
                             {sessionInfo?.classes?.subject || 'Class'} • {sessionInfo?.session_code || 'Session'}
                         </Text>
                     </View>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.filterButton}
                         activeOpacity={0.7}
                         onPress={fetchAttendanceData}
@@ -132,118 +147,118 @@ export default function AttendanceListScreen({ navigation, route }) {
                         <Text style={styles.loadingText}>Loading attendance...</Text>
                     </View>
                 ) : (
-                    <ScrollView 
-                    style={styles.scrollView} 
-                    contentContainerStyle={styles.scrollContent}
-                    showsVerticalScrollIndicator={false}
-                    stickyHeaderIndices={[0]}
-                >
-                    {/* Search Bar - Sticky */}
-                    <View style={styles.searchContainer}>
-                        <View style={styles.searchWrapper}>
-                            <MaterialIcons name="search" size={24} color="#8E8E93" style={styles.searchIcon} />
-                            <TextInput
-                                style={styles.searchInput}
-                                placeholder="Search student name or ID"
-                                placeholderTextColor="#8E8E93"
-                                value={searchQuery}
-                                onChangeText={setSearchQuery}
-                            />
-                        </View>
-                    </View>
-
-                    {/* Present Students */}
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <View style={styles.sectionTitleContainer}>
-                                <View style={styles.statusDot} />
-                                <Text style={styles.sectionTitle}>PRESENT STUDENTS</Text>
-                            </View>
-                            <View style={styles.countBadgePresent}>
-                                <Text style={styles.countTextPresent}>{filteredPresentStudents.length}</Text>
+                    <ScrollView
+                        style={styles.scrollView}
+                        contentContainerStyle={styles.scrollContent}
+                        showsVerticalScrollIndicator={false}
+                        stickyHeaderIndices={[0]}
+                    >
+                        {/* Search Bar - Sticky */}
+                        <View style={styles.searchContainer}>
+                            <View style={styles.searchWrapper}>
+                                <MaterialIcons name="search" size={24} color="#8E8E93" style={styles.searchIcon} />
+                                <TextInput
+                                    style={styles.searchInput}
+                                    placeholder="Search student name or ID"
+                                    placeholderTextColor="#8E8E93"
+                                    value={searchQuery}
+                                    onChangeText={setSearchQuery}
+                                />
                             </View>
                         </View>
 
-                        {filteredPresentStudents.length === 0 ? (
-                            <View style={styles.emptyState}>
-                                <MaterialIcons name="person-off" size={48} color="#8E8E93" />
-                                <Text style={styles.emptyText}>No students marked present yet</Text>
+                        {/* Present Students */}
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <View style={styles.sectionTitleContainer}>
+                                    <View style={styles.statusDot} />
+                                    <Text style={styles.sectionTitle}>PRESENT STUDENTS</Text>
+                                </View>
+                                <View style={styles.countBadgePresent}>
+                                    <Text style={styles.countTextPresent}>{filteredPresentStudents.length}</Text>
+                                </View>
                             </View>
-                        ) : (
-                            <View style={styles.studentList}>
-                                {filteredPresentStudents.map((student) => {
-                                    const initials = getInitials(student.student_name);
-                                    const color = getAvatarColor(student.student_name);
-                                    
-                                    return (
-                                        <View key={student.id} style={styles.studentCard}>
-                                            <View style={[styles.avatar, { backgroundColor: color }]}>
-                                                <Text style={styles.avatarText}>{initials}</Text>
-                                            </View>
-                                            <View style={styles.studentInfo}>
-                                                <Text style={styles.studentName}>{student.student_name}</Text>
-                                                <Text style={styles.studentId}>{student.student_email}</Text>
-                                            </View>
-                                            <View style={styles.timeContainer}>
-                                                <Text style={styles.timeText}>
-                                                    {new Date(student.marked_at).toLocaleTimeString('en-US', { 
-                                                        hour: 'numeric', 
-                                                        minute: '2-digit' 
-                                                    })}
-                                                </Text>
-                                            </View>
-                                            <TouchableOpacity style={styles.statusButton} activeOpacity={0.7}>
-                                                <MaterialIcons name="check-circle" size={24} color="#10B981" />
-                                            </TouchableOpacity>
-                                        </View>
-                                    );
-                                })}
-                            </View>
-                        )}
-                    </View>
 
-                    {/* Absent Students */}
-                    <View style={[styles.section, { marginBottom: 40 }]}>
-                        <View style={styles.sectionHeader}>
-                            <View style={styles.sectionTitleContainer}>
-                                <View style={[styles.statusDot, { backgroundColor: '#EF4444' }]} />
-                                <Text style={[styles.sectionTitle, { color: '#F87171' }]}>ABSENT STUDENTS</Text>
-                            </View>
-                            <View style={styles.countBadgeAbsent}>
-                                <Text style={styles.countTextAbsent}>{filteredAbsentStudents.length}</Text>
-                            </View>
+                            {filteredPresentStudents.length === 0 ? (
+                                <View style={styles.emptyState}>
+                                    <MaterialIcons name="person-off" size={48} color="#8E8E93" />
+                                    <Text style={styles.emptyText}>No students marked present yet</Text>
+                                </View>
+                            ) : (
+                                <View style={styles.studentList}>
+                                    {filteredPresentStudents.map((student) => {
+                                        const initials = getInitials(student.student_name);
+                                        const color = getAvatarColor(student.student_name);
+
+                                        return (
+                                            <View key={student.id} style={styles.studentCard}>
+                                                <View style={[styles.avatar, { backgroundColor: color }]}>
+                                                    <Text style={styles.avatarText}>{initials}</Text>
+                                                </View>
+                                                <View style={styles.studentInfo}>
+                                                    <Text style={styles.studentName}>{student.student_name}</Text>
+                                                    <Text style={styles.studentId}>{student.student_email}</Text>
+                                                </View>
+                                                <View style={styles.timeContainer}>
+                                                    <Text style={styles.timeText}>
+                                                        {new Date(student.marked_at).toLocaleTimeString('en-US', {
+                                                            hour: 'numeric',
+                                                            minute: '2-digit'
+                                                        })}
+                                                    </Text>
+                                                </View>
+                                                <TouchableOpacity style={styles.statusButton} activeOpacity={0.7}>
+                                                    <MaterialIcons name="check-circle" size={24} color="#10B981" />
+                                                </TouchableOpacity>
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+                            )}
                         </View>
 
-                        {filteredAbsentStudents.length === 0 ? (
-                            <View style={styles.emptyState}>
-                                <MaterialIcons name="check-circle" size={48} color="#10B981" />
-                                <Text style={styles.emptyText}>No absent students</Text>
+                        {/* Absent Students */}
+                        <View style={[styles.section, { marginBottom: 40 }]}>
+                            <View style={styles.sectionHeader}>
+                                <View style={styles.sectionTitleContainer}>
+                                    <View style={[styles.statusDot, { backgroundColor: '#EF4444' }]} />
+                                    <Text style={[styles.sectionTitle, { color: '#F87171' }]}>ABSENT STUDENTS</Text>
+                                </View>
+                                <View style={styles.countBadgeAbsent}>
+                                    <Text style={styles.countTextAbsent}>{filteredAbsentStudents.length}</Text>
+                                </View>
                             </View>
-                        ) : (
-                            <View style={styles.studentList}>
-                                {filteredAbsentStudents.map((student) => {
-                                    const initials = getInitials(student.student_name);
-                                    
-                                    return (
-                                        <View key={student.id} style={styles.studentCardAbsent}>
-                                            <View style={styles.absentIndicator} />
-                                            <View style={styles.avatarAbsent}>
-                                                <Text style={styles.avatarTextAbsent}>{initials}</Text>
+
+                            {filteredAbsentStudents.length === 0 ? (
+                                <View style={styles.emptyState}>
+                                    <MaterialIcons name="check-circle" size={48} color="#10B981" />
+                                    <Text style={styles.emptyText}>No absent students</Text>
+                                </View>
+                            ) : (
+                                <View style={styles.studentList}>
+                                    {filteredAbsentStudents.map((student) => {
+                                        const initials = getInitials(student.student_name);
+
+                                        return (
+                                            <View key={student.id} style={styles.studentCardAbsent}>
+                                                <View style={styles.absentIndicator} />
+                                                <View style={styles.avatarAbsent}>
+                                                    <Text style={styles.avatarTextAbsent}>{initials}</Text>
+                                                </View>
+                                                <View style={styles.studentInfo}>
+                                                    <Text style={styles.studentNameAbsent}>{student.student_name}</Text>
+                                                    <Text style={styles.studentId}>{student.student_email}</Text>
+                                                </View>
+                                                <TouchableOpacity style={styles.statusButtonAbsent} activeOpacity={0.7}>
+                                                    <MaterialIcons name="close" size={20} color="#8E8E93" />
+                                                </TouchableOpacity>
                                             </View>
-                                            <View style={styles.studentInfo}>
-                                                <Text style={styles.studentNameAbsent}>{student.student_name}</Text>
-                                                <Text style={styles.studentId}>{student.student_email}</Text>
-                                            </View>
-                                            <TouchableOpacity style={styles.statusButtonAbsent} activeOpacity={0.7}>
-                                                <MaterialIcons name="close" size={20} color="#8E8E93" />
-                                            </TouchableOpacity>
-                                        </View>
-                                    );
-                                })}
-                            </View>
-                        )}
-                    </View>
-                </ScrollView>
+                                        );
+                                    })}
+                                </View>
+                            )}
+                        </View>
+                    </ScrollView>
                 )}
             </SafeAreaView>
         </View>

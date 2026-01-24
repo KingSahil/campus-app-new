@@ -6,9 +6,11 @@ import {
   TouchableOpacity,
   StatusBar,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Background from '../components/Background';
 
 const NoticesScreen = ({ navigation }) => {
   const urgentNotices = [
@@ -107,44 +109,48 @@ const NoticesScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor="#101922" />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity 
-            style={styles.headerButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color="rgba(255,255,255,0.9)" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton}>
-            <Ionicons name="search" size={24} color="rgba(255,255,255,0.9)" />
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.title}>
-          Notices
-        </Text>
-      </View>
+    <View style={{ flex: 1 }}>
+      <Background />
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="light-content" backgroundColor="#101922" />
 
-      {/* Content */}
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <NoticeSection title="Urgent Notices" notices={urgentNotices} />
-        <NoticeSection title="General Announcements" notices={generalAnnouncements} />
-        <NoticeSection title="Course Specific Notes" notices={courseSpecificNotes} />
-        
-        {/* Bottom padding for navigation */}
-        <View style={styles.bottomPadding} />
-      </ScrollView>
-    </SafeAreaView>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={24} color="rgba(255,255,255,0.9)" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerButton}>
+              <Ionicons name="search" size={24} color="rgba(255,255,255,0.9)" />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.title}>
+            Notices
+          </Text>
+        </View>
+
+        {/* Content */}
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          <NoticeSection title="Urgent Notices" notices={urgentNotices} />
+          <NoticeSection title="General Announcements" notices={generalAnnouncements} />
+          <NoticeSection title="Course Specific Notes" notices={courseSpecificNotes} />
+
+          {/* Bottom padding for navigation */}
+          <View style={styles.bottomPadding} />
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#101922',
+    backgroundColor: 'transparent',
+    ...Platform.select({ web: { paddingTop: 20 } }),
   },
   header: {
     paddingHorizontal: 16,

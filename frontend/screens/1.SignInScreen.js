@@ -5,6 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { auth0 } from '../lib/auth0';
 import { supabase } from '../lib/supabase';
+import Background from '../components/Background';
 
 const GoogleIcon = () => (
     <Svg width="24" height="24" viewBox="0 0 24 24">
@@ -86,7 +87,7 @@ export default function SignInScreen({ navigation }) {
         try {
             setLoading(true);
             console.log('Starting Google sign-in...');
-            
+
             const { user, error } = await auth0.signInWithGoogle();
             console.log('Sign-in result:', { user, error });
 
@@ -106,6 +107,7 @@ export default function SignInScreen({ navigation }) {
 
     return (
         <View style={styles.container}>
+            <Background />
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.content}>
 
@@ -162,6 +164,7 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        ...Platform.select({ web: { paddingTop: 20 } }),
     },
     content: {
         width: '100%',

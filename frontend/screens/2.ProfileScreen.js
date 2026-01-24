@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import Background from '../components/Background';
 import * as ImagePicker from 'expo-image-picker';
 
 export default function SignUpScreen({ navigation }) {
@@ -27,7 +28,7 @@ export default function SignUpScreen({ navigation }) {
     const takePhoto = async () => {
         // Request camera permissions
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        
+
         if (status !== 'granted') {
             alert('Sorry, we need camera permissions to scan your student ID!');
             return;
@@ -51,6 +52,7 @@ export default function SignUpScreen({ navigation }) {
 
     return (
         <View style={styles.container}>
+            <Background />
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.content}>
                     <View style={styles.card}>
@@ -113,6 +115,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#0F172A',
+        ...Platform.select({ web: { paddingTop: 20 } }),
     },
     content: {
         width: '100%',

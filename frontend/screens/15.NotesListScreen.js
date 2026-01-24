@@ -330,6 +330,7 @@ const styles = StyleSheet.create({
     },
     safeArea: {
         flex: 1,
+        ...Platform.select({ web: { paddingTop: 20 } }),
     },
     scrollView: {
         flex: 1,

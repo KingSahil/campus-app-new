@@ -5,6 +5,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { getTopicsBySubject, createTopic, deleteTopic } from '../lib/learningHub';
 import Background from '../components/Background';
 
+const topicsCache = {};
+
 export default function SubjectTopicsScreen({ route, navigation }) {
     const { subject: subjectParam, subjectId, subjectName } = route.params || {};
 
@@ -27,8 +29,14 @@ export default function SubjectTopicsScreen({ route, navigation }) {
         loadTopics();
     }, []);
 
-    const loadTopics = async () => {
+    const loadTopics = async (forceRefresh = false) => {
         if (!subject?.id) return;
+
+        if (!forceRefresh && topicsCache[subject.id]) {
+            setTopics(topicsCache[subject.id]);
+            setLoading(false);
+            return;
+        }
 
         setLoading(true);
         const { data, error } = await getTopicsBySubject(subject.id);
@@ -36,7 +44,9 @@ export default function SubjectTopicsScreen({ route, navigation }) {
         if (error) {
             Alert.alert('Error', 'Failed to load topics: ' + error.message);
         } else {
-            setTopics(data || []);
+            const loadedTopics = data || [];
+            setTopics(loadedTopics);
+            topicsCache[subject.id] = loadedTopics;
         }
         setLoading(false);
     };
@@ -61,11 +71,14 @@ export default function SubjectTopicsScreen({ route, navigation }) {
             return;
         }
 
+        const updatedTopics = [data, ...topics];
+        setTopics(updatedTopics);
+        if (subject?.id) {
+            topicsCache[subject.id] = updatedTopics;
+        }
+
         setNewTopicName('');
         setModalVisible(false);
-
-        // Reload topics to ensure fresh data from database
-        await loadTopics();
 
         Alert.alert('Success', 'Topic added successfully!');
     };
@@ -74,7 +87,11 @@ export default function SubjectTopicsScreen({ route, navigation }) {
         if (Platform.OS === 'web') {
             if (window.confirm('Are you sure you want to delete this topic?')) {
                 const previousTopics = [...topics];
-                setTopics(topics.filter(t => t.id !== id));
+                const updatedTopics = topics.filter(t => t.id !== id);
+                setTopics(updatedTopics);
+                if (subject?.id) {
+                    topicsCache[subject.id] = updatedTopics;
+                }
 
                 const { error } = await deleteTopic(id);
                 if (error) {
@@ -95,7 +112,11 @@ export default function SubjectTopicsScreen({ route, navigation }) {
                     style: 'destructive',
                     onPress: async () => {
                         const previousTopics = [...topics];
-                        setTopics(topics.filter(t => t.id !== id));
+                        const updatedTopics = topics.filter(t => t.id !== id);
+                        setTopics(updatedTopics);
+                        if (subject?.id) {
+                            topicsCache[subject.id] = updatedTopics;
+                        }
 
                         const { error } = await deleteTopic(id);
                         if (error) {
@@ -255,6 +276,7 @@ const styles = StyleSheet.create({
     },
     safeArea: {
         flex: 1,
+        ...Platform.select({ web: { paddingTop: 20 } }),
     },
     scrollView: {
         flex: 1,

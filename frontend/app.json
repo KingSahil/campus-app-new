@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Campus App",
-    "slug": "campus-app-new",
+    "slug": "mycampus-web",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -40,7 +40,8 @@
             "DEFAULT"
           ]
         }
-      ]
+      ],
+      "softwareKeyboardLayoutMode": "resize"
     },
     "extra": {
       "eas": {

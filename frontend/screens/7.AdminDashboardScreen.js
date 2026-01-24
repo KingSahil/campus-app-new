@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import Background from '../components/Background';
 
 export default function AdminDashboardScreen({ navigation }) {
     const quickAccessItems = [
@@ -27,9 +28,10 @@ export default function AdminDashboardScreen({ navigation }) {
 
     return (
         <View style={styles.container}>
+            <Background />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 {/* Main Content */}
-                <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+                <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     {/* Header */}
                     <View style={styles.contentColumn}>
                         <View style={styles.header}>
@@ -38,13 +40,13 @@ export default function AdminDashboardScreen({ navigation }) {
                                 <Text style={styles.subtitle}>Welcome, Professor</Text>
                             </View>
                             <View style={styles.headerButtons}>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={styles.notificationButton}
                                     onPress={() => navigation.navigate('Notices')}
                                 >
                                     <MaterialIcons name="notifications" size={24} color="#ffffff" />
                                 </TouchableOpacity>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={styles.profilePicContainer}
                                     onPress={() => navigation.navigate('ProfileDetail')}
                                 >
@@ -87,6 +89,7 @@ const styles = StyleSheet.create({
     },
     safeArea: {
         flex: 1,
+        ...Platform.select({ web: { paddingTop: 20 } }),
     },
     scrollView: {
         flex: 1,

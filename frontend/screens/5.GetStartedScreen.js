@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { auth0 } from '../lib/auth0';
+import Background from '../components/Background';
 
 export default function GetStartedScreen({ navigation }) {
     const markOnboardingComplete = async (role = 'student') => {
@@ -39,6 +40,7 @@ export default function GetStartedScreen({ navigation }) {
 
     return (
         <View style={styles.container}>
+            <Background />
             <SafeAreaView style={styles.safeArea}>
                 <ScrollView contentContainerStyle={styles.scrollContent}>
 
@@ -107,6 +109,7 @@ const styles = StyleSheet.create({
     },
     safeArea: {
         flex: 1,
+        ...Platform.select({ web: { paddingTop: 20 } }),
     },
     scrollContent: {
         flexGrow: 1,

@@ -7,6 +7,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Location from 'expo-location';
 import { supabase } from '../lib/supabase';
 import { auth0 } from '../lib/auth0';
+import Background from '../components/Background';
 
 
 export default function AttendanceAdminScreen({ navigation }) {
@@ -185,8 +186,8 @@ export default function AttendanceAdminScreen({ navigation }) {
 
 
     return (
-
         <View style={styles.container}>
+            <Background />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 {/* Header */}
                 <View style={styles.header}>
@@ -331,52 +332,108 @@ export default function AttendanceAdminScreen({ navigation }) {
                                 <View style={[styles.inputGroup, { flex: 1 }]}>
                                     <Text style={styles.inputLabel}>START TIME</Text>
 
-                                    <Pressable onPress={() => setShowStart(true)}>
-                                        <Text style={styles.textInput}>
-                                            {startTime.toLocaleTimeString([], {
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            })}
-                                        </Text>
-                                    </Pressable>
+                                    {Platform.OS === 'web' ? (
+                                        React.createElement('input', {
+                                            type: 'time',
+                                            value: startTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+                                            onChange: (e) => {
+                                                const [hours, minutes] = e.target.value.split(':');
+                                                const newDate = new Date(startTime);
+                                                newDate.setHours(parseInt(hours));
+                                                newDate.setMinutes(parseInt(minutes));
+                                                setStartTime(newDate);
+                                            },
+                                            style: {
+                                                backgroundColor: 'rgba(22, 22, 37, 0.5)',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: '16px',
+                                                padding: '14px 16px',
+                                                color: '#ffffff',
+                                                fontSize: '16px',
+                                                width: '100%',
+                                                boxSizing: 'border-box',
+                                                outline: 'none',
+                                                colorScheme: 'dark'
+                                            }
+                                        })
+                                    ) : (
+                                        <>
+                                            <Pressable onPress={() => setShowStart(true)}>
+                                                <Text style={styles.textInput}>
+                                                    {startTime.toLocaleTimeString([], {
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                    })}
+                                                </Text>
+                                            </Pressable>
 
-                                    {showStart && (
-                                        <DateTimePicker
-                                            value={startTime}
-                                            mode="time"
-                                            is24Hour={false}
-                                            display="default"
-                                            onChange={(event, selectedTime) => {
-                                                setShowStart(false);
-                                                if (selectedTime) setStartTime(selectedTime);
-                                            }}
-                                        />
+                                            {showStart && (
+                                                <DateTimePicker
+                                                    value={startTime}
+                                                    mode="time"
+                                                    is24Hour={false}
+                                                    display="default"
+                                                    onChange={(event, selectedTime) => {
+                                                        setShowStart(false);
+                                                        if (selectedTime) setStartTime(selectedTime);
+                                                    }}
+                                                />
+                                            )}
+                                        </>
                                     )}
                                 </View>
 
                                 <View style={[styles.inputGroup, { flex: 1 }]}>
                                     <Text style={styles.inputLabel}>END TIME</Text>
 
-                                    <Pressable onPress={() => setShowEnd(true)}>
-                                        <Text style={styles.textInput}>
-                                            {endTime.toLocaleTimeString([], {
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            })}
-                                        </Text>
-                                    </Pressable>
+                                    {Platform.OS === 'web' ? (
+                                        React.createElement('input', {
+                                            type: 'time',
+                                            value: endTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+                                            onChange: (e) => {
+                                                const [hours, minutes] = e.target.value.split(':');
+                                                const newDate = new Date(endTime);
+                                                newDate.setHours(parseInt(hours));
+                                                newDate.setMinutes(parseInt(minutes));
+                                                setEndTime(newDate);
+                                            },
+                                            style: {
+                                                backgroundColor: 'rgba(22, 22, 37, 0.5)',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: '16px',
+                                                padding: '14px 16px',
+                                                color: '#ffffff',
+                                                fontSize: '16px',
+                                                width: '100%',
+                                                boxSizing: 'border-box',
+                                                outline: 'none',
+                                                colorScheme: 'dark'
+                                            }
+                                        })
+                                    ) : (
+                                        <>
+                                            <Pressable onPress={() => setShowEnd(true)}>
+                                                <Text style={styles.textInput}>
+                                                    {endTime.toLocaleTimeString([], {
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                    })}
+                                                </Text>
+                                            </Pressable>
 
-                                    {showEnd && (
-                                        <DateTimePicker
-                                            value={endTime}
-                                            mode="time"
-                                            is24Hour={false}
-                                            display="default"
-                                            onChange={(event, selectedTime) => {
-                                                setShowEnd(false);
-                                                if (selectedTime) setEndTime(selectedTime);
-                                            }}
-                                        />
+                                            {showEnd && (
+                                                <DateTimePicker
+                                                    value={endTime}
+                                                    mode="time"
+                                                    is24Hour={false}
+                                                    display="default"
+                                                    onChange={(event, selectedTime) => {
+                                                        setShowEnd(false);
+                                                        if (selectedTime) setEndTime(selectedTime);
+                                                    }}
+                                                />
+                                            )}
+                                        </>
                                     )}
                                 </View>
                             </View>

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { auth0 } from '../lib/auth0';
+import Background from '../components/Background';
 
 export default function ManageAttendanceScreen({ navigation, route }) {
     const [configuredClasses, setConfiguredClasses] = useState([]);
@@ -83,7 +84,7 @@ export default function ManageAttendanceScreen({ navigation, route }) {
     const startSession = async (classItem) => {
         try {
             const user = await auth0.getUser();
-            
+
             // Generate a unique session code
             const sessionCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
@@ -102,7 +103,7 @@ export default function ManageAttendanceScreen({ navigation, route }) {
 
             setActiveSession(data);
             setActiveSessionTime({ hours: 0, minutes: 0, seconds: 0 });
-            
+
             Alert.alert('Success', `Session started!\\nSession Code: ${sessionCode}`);
         } catch (error) {
             console.error('Error starting session:', error);
@@ -116,7 +117,7 @@ export default function ManageAttendanceScreen({ navigation, route }) {
         try {
             const { error } = await supabase
                 .from('attendance_sessions')
-                .update({ 
+                .update({
                     is_active: false,
                     ended_at: new Date().toISOString()
                 })
@@ -126,7 +127,7 @@ export default function ManageAttendanceScreen({ navigation, route }) {
 
             setActiveSession(null);
             setActiveSessionTime({ hours: 0, minutes: 0, seconds: 0 });
-            
+
             Alert.alert('Success', 'Session stopped successfully');
             fetchClasses();
         } catch (error) {
@@ -137,7 +138,7 @@ export default function ManageAttendanceScreen({ navigation, route }) {
 
     const getUpcomingSessions = () => {
         // Filter out active session if it exists
-        const filtered = activeSession 
+        const filtered = activeSession
             ? configuredClasses.filter(c => c.id !== activeSession.class_id)
             : configuredClasses;
 
@@ -160,10 +161,11 @@ export default function ManageAttendanceScreen({ navigation, route }) {
 
     return (
         <View style={styles.container}>
+            <Background />
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.backButton}
                         onPress={() => navigation.navigate('AttendanceAdmin')}
                         activeOpacity={0.7}
@@ -171,7 +173,7 @@ export default function ManageAttendanceScreen({ navigation, route }) {
                         <MaterialIcons name="arrow-back" size={24} color="#ffffff" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Manage Sessions</Text>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.historyButton}
                         activeOpacity={0.7}
                     >
@@ -180,8 +182,8 @@ export default function ManageAttendanceScreen({ navigation, route }) {
                 </View>
 
                 {/* Main Content */}
-                <ScrollView 
-                    style={styles.scrollView} 
+                <ScrollView
+                    style={styles.scrollView}
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
@@ -199,7 +201,7 @@ export default function ManageAttendanceScreen({ navigation, route }) {
                         <View style={styles.activeSessionCard}>
                             {/* Glowing background effect */}
                             <View style={styles.glowingCircle} />
-                            
+
                             <View style={styles.activeSessionHeader}>
                                 <Text style={styles.activeSessionSubject}>
                                     {activeSession.classes?.subject || activeSession.classes?.name}
@@ -216,7 +218,7 @@ export default function ManageAttendanceScreen({ navigation, route }) {
                                 </View>
                             )} */}
 
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={styles.viewAttendanceButton}
                                 activeOpacity={0.8}
                                 onPress={() => navigation.navigate('AttendanceList', { sessionId: activeSession.id })}
@@ -230,7 +232,7 @@ export default function ManageAttendanceScreen({ navigation, route }) {
                                 </View>
                             </TouchableOpacity>
 
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={styles.stopButton}
                                 activeOpacity={0.8}
                                 onPress={stopSession}
@@ -258,7 +260,7 @@ export default function ManageAttendanceScreen({ navigation, route }) {
                     <View style={styles.upcomingList}>
                         {upcomingSessions.map((session) => (
                             <View key={session.id} style={styles.upcomingCard}>
-                                <View style={[styles.iconContainer, { 
+                                <View style={[styles.iconContainer, {
                                     backgroundColor: `${session.color1}33`,
                                 }]}>
                                     <MaterialIcons name={session.icon} size={28} color="#ffffff" />
@@ -274,16 +276,16 @@ export default function ManageAttendanceScreen({ navigation, route }) {
                                         <Text style={styles.sessionRoom}>{session.room}</Text>
                                     </View>
                                 </View>
-                                <TouchableOpacity 
-                                    style={styles.playButton} 
+                                <TouchableOpacity
+                                    style={styles.playButton}
                                     activeOpacity={0.7}
                                     onPress={() => startSession(session.classData)}
                                     disabled={!!activeSession}
                                 >
-                                    <MaterialIcons 
-                                        name="play-arrow" 
-                                        size={24} 
-                                        color={activeSession ? "#444" : "#8E8E93"} 
+                                    <MaterialIcons
+                                        name="play-arrow"
+                                        size={24}
+                                        color={activeSession ? "#444" : "#8E8E93"}
                                     />
                                 </TouchableOpacity>
                             </View>
@@ -293,7 +295,7 @@ export default function ManageAttendanceScreen({ navigation, route }) {
 
                 {/* Bottom Button */}
                 <View style={styles.bottomButtonContainer}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.setupButton}
                         activeOpacity={0.8}
                         onPress={() => navigation.navigate('AttendanceAdmin')}
@@ -440,6 +442,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        justifyContent: 'center'
     },
     buttonLeft: {
         flexDirection: 'row',
