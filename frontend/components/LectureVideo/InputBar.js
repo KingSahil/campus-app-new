@@ -15,7 +15,7 @@ export default function InputBar({
     const insets = useSafeAreaInsets();
 
     return (
-        <View style={[styles.fixedInputBar, { paddingBottom: Math.max(Platform.OS === 'web' ? 24 : 12, insets.bottom + 96) }]}>
+        <View style={[styles.fixedInputBar, { paddingBottom: Math.max(Platform.OS === 'web' ? 60 : 12, insets.bottom) }]}>
             {replyTo && (
                 <View style={styles.replyIndicator}>
                     <MaterialIcons name="reply" size={16} color="#3B82F6" />
