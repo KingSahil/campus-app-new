@@ -277,7 +277,7 @@ export default function QuestionDetailScreen({ navigation, route }) {
                 body: JSON.stringify({
                     question_title: question.title,
                     question_content: question.question,
-                    question_type: question.question_type,
+                    question_type: question.question_type || 'theory',
                     api_provider: 'gemini'
                 }),
             });
@@ -326,7 +326,11 @@ export default function QuestionDetailScreen({ navigation, route }) {
     );
 
     const renderDiscussion = () => (
-        <View style={styles.tabContent}>
+        <KeyboardAvoidingView
+            style={styles.tabContent}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+        >
             {loadingDiscussions ? (
                 <ActivityIndicator size="large" color="#0A84FF" />
             ) : (
@@ -412,32 +416,30 @@ export default function QuestionDetailScreen({ navigation, route }) {
                         )}
                     </ScrollView>
 
-                    {!keyboardVisible && (
-                        <View style={styles.messageInputContainer}>
-                            <TextInput
-                                style={styles.messageInput}
-                                placeholder="Share your thoughts..."
-                                placeholderTextColor="#6B7280"
-                                value={newMessage}
-                                onChangeText={setNewMessage}
-                                multiline
+                    <View style={styles.messageInputContainer}>
+                        <TextInput
+                            style={styles.messageInput}
+                            placeholder="Share your thoughts..."
+                            placeholderTextColor="#6B7280"
+                            value={newMessage}
+                            onChangeText={setNewMessage}
+                            multiline
+                        />
+                        <TouchableOpacity
+                            onPress={handleSendMessage}
+                            style={styles.sendButton}
+                            disabled={!newMessage.trim()}
+                        >
+                            <MaterialIcons
+                                name="send"
+                                size={24}
+                                color={newMessage.trim() ? '#0A84FF' : '#6B7280'}
                             />
-                            <TouchableOpacity
-                                onPress={handleSendMessage}
-                                style={styles.sendButton}
-                                disabled={!newMessage.trim()}
-                            >
-                                <MaterialIcons
-                                    name="send"
-                                    size={24}
-                                    color={newMessage.trim() ? '#0A84FF' : '#6B7280'}
-                                />
-                            </TouchableOpacity>
-                        </View>
-                    )}
+                        </TouchableOpacity>
+                    </View>
                 </>
             )}
-        </View>
+        </KeyboardAvoidingView>
     );
 
     const renderAISolution = () => (

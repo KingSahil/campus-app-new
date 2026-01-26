@@ -25,7 +25,6 @@ export default function QuestionsListScreen({ navigation, route }) {
     const [newQuestionTitle, setNewQuestionTitle] = useState('');
     const [newQuestionContent, setNewQuestionContent] = useState('');
     const [newQuestionAnswer, setNewQuestionAnswer] = useState('');
-    const [questionType, setQuestionType] = useState('theory');
     const [submitting, setSubmitting] = useState(false);
     const [user, setUser] = useState(null);
     const [isDeleteMode, setIsDeleteMode] = useState(false);
@@ -66,11 +65,6 @@ export default function QuestionsListScreen({ navigation, route }) {
     };
 
     const handleAddQuestion = async () => {
-        if (!newQuestionTitle.trim()) {
-            Alert.alert('Error', 'Please enter a question title');
-            return;
-        }
-
         if (!newQuestionContent.trim()) {
             Alert.alert('Error', 'Please enter question content');
             return;
@@ -83,15 +77,20 @@ export default function QuestionsListScreen({ navigation, route }) {
 
         setSubmitting(true);
         try {
+            // Generate a title from the first 50 characters of the question content
+            const generatedTitle = newQuestionContent.length > 50
+                ? newQuestionContent.substring(0, 50) + '...'
+                : newQuestionContent;
+
             const { data, error } = await supabase
                 .from('questions')
                 .insert({
                     topic_id: topic.id,
                     subject_id: subject.id,
-                    title: newQuestionTitle,
+                    title: generatedTitle,
                     question: newQuestionContent,
                     answer: newQuestionAnswer.trim() || null,
-                    question_type: questionType,
+                    question_type: 'theory',
                     created_by: user.sub,
                     created_by_email: user.email,
                 })
@@ -101,10 +100,8 @@ export default function QuestionsListScreen({ navigation, route }) {
             if (error) throw error;
 
             setQuestions([data, ...questions]);
-            setNewQuestionTitle('');
             setNewQuestionContent('');
             setNewQuestionAnswer('');
-            setQuestionType('theory');
             setModalVisible(false);
             Alert.alert('Success', 'Question added successfully!');
         } catch (error) {
@@ -180,7 +177,7 @@ export default function QuestionsListScreen({ navigation, route }) {
                                 <MaterialIcons name="arrow-back-ios" size={24} color="#8E8E93" />
                             </TouchableOpacity>
                             <View style={styles.headerText}>
-                                <Text style={styles.title}>Questions / PYQ</Text>
+                                <Text style={styles.title}>Questions</Text>
                                 <Text style={styles.subtitle}>{topic.name}</Text>
                             </View>
                             <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -234,15 +231,7 @@ export default function QuestionsListScreen({ navigation, route }) {
                                     >
                                         <View style={styles.questionContent}>
                                             <View style={styles.questionInfo}>
-                                                <View style={styles.questionHeader}>
-                                                    <Text style={styles.questionTitle}>{question.title}</Text>
-                                                    <View style={styles.typeBadge}>
-                                                        <Text style={styles.typeText}>
-                                                            {question.question_type === 'pyq' ? 'PYQ' : 'Theory'}
-                                                        </Text>
-                                                    </View>
-                                                </View>
-                                                <Text style={styles.questionPreview} numberOfLines={2}>
+                                                <Text style={styles.questionTitle} numberOfLines={3}>
                                                     {question.question}
                                                 </Text>
                                             </View>
@@ -290,34 +279,6 @@ export default function QuestionsListScreen({ navigation, route }) {
                                     </TouchableOpacity>
                                 </View>
 
-                                {/* Question Type Selection */}
-                                <View style={styles.typeSelector}>
-                                    <TouchableOpacity
-                                        style={[styles.typeButton, questionType === 'theory' && styles.typeButtonActive]}
-                                        onPress={() => setQuestionType('theory')}
-                                    >
-                                        <Text style={[styles.typeButtonText, questionType === 'theory' && styles.typeButtonTextActive]}>
-                                            Theory
-                                        </Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.typeButton, questionType === 'pyq' && styles.typeButtonActive]}
-                                        onPress={() => setQuestionType('pyq')}
-                                    >
-                                        <Text style={[styles.typeButtonText, questionType === 'pyq' && styles.typeButtonTextActive]}>
-                                            PYQ
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
-
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Question Title"
-                                    placeholderTextColor="#6B7280"
-                                    value={newQuestionTitle}
-                                    onChangeText={setNewQuestionTitle}
-                                />
-
                                 <TextInput
                                     style={[styles.input, styles.textArea]}
                                     placeholder="Question"
@@ -345,10 +306,8 @@ export default function QuestionsListScreen({ navigation, route }) {
                                         style={[styles.modalButton, styles.cancelButton]}
                                         onPress={() => {
                                             setModalVisible(false);
-                                            setNewQuestionTitle('');
                                             setNewQuestionContent('');
                                             setNewQuestionAnswer('');
-                                            setQuestionType('theory');
                                         }}
                                     >
                                         <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -469,29 +428,12 @@ const styles = StyleSheet.create({
         flex: 1,
         marginRight: 12,
     },
-    questionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 4,
-    },
     questionTitle: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: '600',
         color: '#ffffff',
-        flex: 1,
-    },
-    typeBadge: {
-        backgroundColor: 'rgba(10, 132, 255, 0.2)',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
-    },
-    typeText: {
-        fontSize: 10,
-        fontWeight: '600',
-        color: '#0A84FF',
-        textTransform: 'uppercase',
+        lineHeight: 22,
+        marginBottom: 4,
     },
     questionPreview: {
         fontSize: 14,
@@ -576,32 +518,6 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#ffffff',
-    },
-    typeSelector: {
-        flexDirection: 'row',
-        gap: 12,
-        marginBottom: 16,
-    },
-    typeButton: {
-        flex: 1,
-        paddingVertical: 10,
-        borderRadius: 8,
-        alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-    },
-    typeButtonActive: {
-        backgroundColor: '#0A84FF',
-        borderColor: '#0A84FF',
-    },
-    typeButtonText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#8E8E93',
-    },
-    typeButtonTextActive: {
         color: '#ffffff',
     },
     input: {

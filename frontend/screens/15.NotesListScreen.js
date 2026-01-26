@@ -23,7 +23,7 @@ export default function NotesListScreen({ navigation, route }) {
     const [loading, setLoading] = useState(true);
     const [modalVisible, setModalVisible] = useState(false);
     const [newNoteTitle, setNewNoteTitle] = useState('');
-    const [newNoteContent, setNewNoteContent] = useState('');
+    const [newNotePdfLink, setNewNotePdfLink] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [user, setUser] = useState(null);
     const [isDeleteMode, setIsDeleteMode] = useState(false);
@@ -69,11 +69,6 @@ export default function NotesListScreen({ navigation, route }) {
             return;
         }
 
-        if (!newNoteContent.trim()) {
-            Alert.alert('Error', 'Please enter note content');
-            return;
-        }
-
         if (!user?.sub) {
             Alert.alert('Sign In Required', 'Please sign in to add notes');
             return;
@@ -87,7 +82,7 @@ export default function NotesListScreen({ navigation, route }) {
                     topic_id: topic.id,
                     subject_id: subject.id,
                     title: newNoteTitle,
-                    content: newNoteContent,
+                    pdf_link: newNotePdfLink.trim() || null,
                     created_by: user.sub,
                     created_by_email: user.email,
                 })
@@ -98,7 +93,7 @@ export default function NotesListScreen({ navigation, route }) {
 
             setNotes([data, ...notes]);
             setNewNoteTitle('');
-            setNewNoteContent('');
+            setNewNotePdfLink('');
             setModalVisible(false);
             Alert.alert('Success', 'Note added successfully!');
         } catch (error) {
@@ -229,9 +224,12 @@ export default function NotesListScreen({ navigation, route }) {
                                         <View style={styles.noteContent}>
                                             <View style={styles.noteInfo}>
                                                 <Text style={styles.noteTitle}>{note.title}</Text>
-                                                <Text style={styles.notePreview} numberOfLines={2}>
-                                                    {note.content}
-                                                </Text>
+                                                {note.pdf_link && (
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                                                        <MaterialIcons name="picture-as-pdf" size={14} color="#FF3B30" style={{ marginRight: 4 }} />
+                                                        <Text style={{ color: '#0A84FF', fontSize: 12 }}>PDF Attached</Text>
+                                                    </View>
+                                                )}
                                             </View>
                                             <View style={styles.noteStats}>
                                                 <View style={styles.upvoteContainer}>
@@ -281,15 +279,15 @@ export default function NotesListScreen({ navigation, route }) {
                                 onChangeText={setNewNoteTitle}
                             />
 
+
                             <TextInput
-                                style={[styles.input, styles.textArea]}
-                                placeholder="Note Content"
+                                style={styles.input}
+                                placeholder="Google Drive PDF Link"
                                 placeholderTextColor="#6B7280"
-                                value={newNoteContent}
-                                onChangeText={setNewNoteContent}
-                                multiline
-                                numberOfLines={6}
-                                textAlignVertical="top"
+                                value={newNotePdfLink}
+                                onChangeText={setNewNotePdfLink}
+                                autoCapitalize="none"
+                                autoCorrect={false}
                             />
 
                             <View style={styles.modalButtons}>
@@ -298,7 +296,7 @@ export default function NotesListScreen({ navigation, route }) {
                                     onPress={() => {
                                         setModalVisible(false);
                                         setNewNoteTitle('');
-                                        setNewNoteContent('');
+                                        setNewNotePdfLink('');
                                     }}
                                 >
                                     <Text style={styles.cancelButtonText}>Cancel</Text>

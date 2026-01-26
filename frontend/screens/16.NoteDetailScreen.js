@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator, Platform, KeyboardAvoidingView, Keyboard } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator, Platform, KeyboardAvoidingView, Keyboard, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
@@ -283,8 +283,9 @@ export default function NoteDetailScreen({ navigation, route }) {
                 },
                 body: JSON.stringify({
                     note_title: note.title,
-                    note_content: note.content,
+                    note_content: note.content || '',
                     question: userQuestion,
+                    note_pdf_url: note.pdf_link,
                     api_provider: 'gemini'
                 }),
             });
@@ -310,15 +311,78 @@ export default function NoteDetailScreen({ navigation, route }) {
     };
 
     const renderContent = () => (
-        <View style={styles.tabContent}>
-            <Markdown style={markdownStyles}>
-                {note.content}
-            </Markdown>
-        </View>
+        <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+        >
+            <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+                <Markdown style={markdownStyles}>
+                    {note.content}
+                </Markdown>
+
+                {note.pdf_link && (
+                    <View style={styles.pdfContainer}>
+                        <Text style={styles.pdfLabel}>Attached PDF:</Text>
+                        <TouchableOpacity
+                            style={styles.pdfButton}
+                            onPress={() => Linking.openURL(note.pdf_link)}
+                        >
+                            <MaterialIcons name="picture-as-pdf" size={24} color="#FF3B30" />
+                            <Text style={styles.pdfButtonText} numberOfLines={1}>
+                                Open PDF Document
+                            </Text>
+                            <MaterialIcons name="open-in-new" size={20} color="#0A84FF" />
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Ask AI Section */}
+                <View style={styles.aiContainerInContent}>
+                    <Text style={styles.aiTitle}>Ask AI about this note</Text>
+                    <Text style={styles.aiSubtitle}>Get instant answers to your questions</Text>
+
+                    <TextInput
+                        style={styles.aiInput}
+                        placeholder="What would you like to know?"
+                        placeholderTextColor="#6B7280"
+                        value={userQuestion}
+                        onChangeText={setUserQuestion}
+                        multiline
+                    />
+
+                    <TouchableOpacity
+                        style={[styles.aiButton, loadingAI && styles.aiButtonDisabled]}
+                        onPress={askAI}
+                        disabled={loadingAI}
+                    >
+                        {loadingAI ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <Text style={styles.aiButtonText}>Ask AI</Text>
+                        )}
+                    </TouchableOpacity>
+
+                    {aiAnswer ? (
+                        <View style={styles.aiAnswerContainer}>
+                            <Text style={styles.aiAnswerTitle}>Answer:</Text>
+                            <Markdown style={markdownStyles}>
+                                {aiAnswer}
+                            </Markdown>
+                        </View>
+                    ) : null}
+                </View>
+                <View style={{ height: 40 }} />
+            </ScrollView>
+        </KeyboardAvoidingView>
     );
 
     const renderDiscussion = () => (
-        <View style={styles.tabContent}>
+        <KeyboardAvoidingView
+            style={styles.tabContent}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+        >
             {loadingDiscussions ? (
                 <ActivityIndicator size="large" color="#0A84FF" />
             ) : (
@@ -404,73 +468,29 @@ export default function NoteDetailScreen({ navigation, route }) {
                         )}
                     </ScrollView>
 
-                    {!keyboardVisible && (
-                        <View style={styles.messageInputContainer}>
-                            <TextInput
-                                style={styles.messageInput}
-                                placeholder="Share your thoughts..."
-                                placeholderTextColor="#6B7280"
-                                value={newMessage}
-                                onChangeText={setNewMessage}
-                                multiline
+                    <View style={styles.messageInputContainer}>
+                        <TextInput
+                            style={styles.messageInput}
+                            placeholder="Share your thoughts..."
+                            placeholderTextColor="#6B7280"
+                            value={newMessage}
+                            onChangeText={setNewMessage}
+                            multiline
+                        />
+                        <TouchableOpacity
+                            onPress={handleSendMessage}
+                            style={styles.sendButton}
+                            disabled={!newMessage.trim()}
+                        >
+                            <MaterialIcons
+                                name="send"
+                                size={24}
+                                color={newMessage.trim() ? '#0A84FF' : '#6B7280'}
                             />
-                            <TouchableOpacity
-                                onPress={handleSendMessage}
-                                style={styles.sendButton}
-                                disabled={!newMessage.trim()}
-                            >
-                                <MaterialIcons
-                                    name="send"
-                                    size={24}
-                                    color={newMessage.trim() ? '#0A84FF' : '#6B7280'}
-                                />
-                            </TouchableOpacity>
-                        </View>
-                    )}
+                        </TouchableOpacity>
+                    </View>
                 </>
             )}
-        </View>
-    );
-
-    const renderAskAI = () => (
-        <KeyboardAvoidingView
-            style={styles.tabContent}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-            <View style={styles.aiContainer}>
-                <Text style={styles.aiTitle}>Ask AI about this note</Text>
-                <Text style={styles.aiSubtitle}>Get instant answers to your questions</Text>
-
-                <TextInput
-                    style={styles.aiInput}
-                    placeholder="What would you like to know?"
-                    placeholderTextColor="#6B7280"
-                    value={userQuestion}
-                    onChangeText={setUserQuestion}
-                    multiline
-                />
-
-                <TouchableOpacity
-                    style={[styles.aiButton, loadingAI && styles.aiButtonDisabled]}
-                    onPress={askAI}
-                    disabled={loadingAI}
-                >
-                    {loadingAI ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                        <Text style={styles.aiButtonText}>Ask AI</Text>
-                    )}
-                </TouchableOpacity>
-
-                {aiAnswer ? (
-                    <ScrollView style={styles.aiAnswerContainer}>
-                        <Text style={styles.aiAnswerTitle}>Answer:</Text>
-                        <Markdown style={markdownStyles}>
-                            {aiAnswer}
-                        </Markdown>
-                    </ScrollView>
-                ) : null}
-            </View>
         </KeyboardAvoidingView>
     );
 
@@ -519,7 +539,7 @@ export default function NoteDetailScreen({ navigation, route }) {
                         onPress={() => setActiveTab('content')}
                     >
                         <Text style={[styles.tabText, activeTab === 'content' && styles.activeTabText]}>
-                            Content
+                            Content & AI
                         </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -530,20 +550,11 @@ export default function NoteDetailScreen({ navigation, route }) {
                             Discussion
                         </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'ai' && styles.activeTab]}
-                        onPress={() => setActiveTab('ai')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'ai' && styles.activeTabText]}>
-                            Ask AI
-                        </Text>
-                    </TouchableOpacity>
                 </View>
 
                 {/* Content */}
                 {activeTab === 'content' && renderContent()}
                 {activeTab === 'discussion' && renderDiscussion()}
-                {activeTab === 'ai' && renderAskAI()}
             </SafeAreaView>
         </View>
     );
@@ -637,6 +648,34 @@ const styles = StyleSheet.create({
     tabContent: {
         flex: 1,
         padding: 20,
+    },
+    pdfContainer: {
+        marginTop: 24,
+        paddingTop: 24,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    pdfLabel: {
+        fontSize: 14,
+        color: '#8E8E93',
+        marginBottom: 12,
+        fontWeight: '500',
+    },
+    pdfButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        backgroundColor: 'rgba(28, 28, 46, 0.5)',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        gap: 12,
+    },
+    pdfButtonText: {
+        flex: 1,
+        fontSize: 16,
+        color: '#0A84FF',
+        fontWeight: '600',
     },
     discussionList: {
         flex: 1,
@@ -779,6 +818,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    aiContainerInContent: {
+        marginTop: 40,
+        paddingTop: 32,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.1)',
+        marginBottom: 20,
+    },
     aiContainer: {
         flex: 1,
     },
@@ -798,22 +844,22 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.1)',
         borderRadius: 12,
-        padding: 14,
+        padding: 16,
         color: '#ffffff',
-        fontSize: 15,
+        fontSize: 16,
         minHeight: 100,
         textAlignVertical: 'top',
         marginBottom: 16,
     },
     aiButton: {
         backgroundColor: '#0A84FF',
-        paddingVertical: 14,
         borderRadius: 12,
+        paddingVertical: 14,
         alignItems: 'center',
         marginBottom: 20,
     },
     aiButtonDisabled: {
-        opacity: 0.6,
+        opacity: 0.7,
     },
     aiButtonText: {
         color: '#ffffff',
@@ -821,8 +867,8 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     aiAnswerContainer: {
-        flex: 1,
-        backgroundColor: 'rgba(28, 28, 46, 0.5)',
+        marginTop: 24,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderRadius: 12,
         padding: 16,
         borderWidth: 1,
@@ -831,8 +877,8 @@ const styles = StyleSheet.create({
     aiAnswerTitle: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#0A84FF',
-        marginBottom: 12,
+        color: '#ffffff',
+        marginBottom: 8,
     },
 });
 

@@ -183,7 +183,7 @@ Please respond in the following JSON format:
         except (KeyError, json.JSONDecodeError) as e:
             raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
 
-async def call_gemini(transcript_text: str, model: str = "gemini-2.0-flash-exp", video_duration: str = None, video_duration_seconds: float = None) -> dict:
+async def call_gemini(transcript_text: str, model: str = "gemini-3-flash-preview", video_duration: str = None, video_duration_seconds: float = None) -> dict:
     """Call Google Gemini API to generate chapters and summary"""
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -599,6 +599,263 @@ async def get_transcript_by_url(request: TranscriptRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
+class NoteQuestionRequest(BaseModel):
+    note_title: str
+    note_content: str
+    question: str
+    note_pdf_url: Optional[str] = None
+    api_provider: Optional[str] = "gemini"  # 'openrouter' or 'gemini'
+
+@app.post("/ai-note-question")
+async def answer_note_question(request: NoteQuestionRequest):
+    """
+    Answer student questions about a note using AI based on the note content and optional PDF
+    """
+    try:
+        # Prompt construction
+        prompt_text = f"""You are an educational assistant helping students understand their study notes.
+
+Note Title: {request.note_title}
+
+Note Content (Markdown/Text):
+{request.note_content}
+
+PDF Attachment: {request.note_pdf_url if request.note_pdf_url else "None"}
+
+Student Question: {request.question}
+
+Based on the note content and the linked PDF (if provided), provide a detailed answer to the student's question. 
+If there is a PDF link, please analyze its content to answer the question.
+Include:
+- Direct references to the note content
+- Clear explanations
+- Examples if applicable
+
+If the question cannot be answered from the note content, politely explain that the information is not in the notes."""
+
+        # Try Gemini first, fallback to OpenRouter on quota error
+        ai_response = None
+        used_provider = request.api_provider or "gemini"
+        
+        # Prepare contents for Gemini
+        gemini_contents = [prompt_text]
+        
+        if used_provider == "gemini":
+            api_key = os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                raise HTTPException(status_code=500, detail="Gemini API key not configured")
+            
+            try:
+                client = genai.Client(api_key=api_key)
+                response = client.models.generate_content(
+                    model="gemini-3-flash-preview",
+                    contents=prompt
+                )
+                ai_response = response.text
+            except Exception as e:
+                # Check if it's a quota error
+                error_str = str(e)
+                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower():
+                    print(f"⚠️  Gemini quota exceeded for note question, falling back to OpenRouter...")
+                    # Fallback to OpenRouter (Text only support for now)
+                    if os.getenv("OPENROUTER_API_KEY"):
+                        try:
+                            # Append note regarding missing PDF support in fallback
+                            fallback_prompt = prompt_text
+                            if request.note_pdf_url:
+                                fallback_prompt += "\n\n(Note: PDF attachment could not be processed due to quota limits, answering based on text content only.)"
+
+                            api_key = os.getenv("OPENROUTER_API_KEY")
+                            async with httpx.AsyncClient(timeout=60.0) as client:
+                                response = await client.post(
+                                    "https://openrouter.ai/api/v1/chat/completions",
+                                    headers={
+                                        "Authorization": f"Bearer {api_key}",
+                                        "Content-Type": "application/json"
+                                    },
+                                    json={
+                                        "model": "anthropic/claude-3-haiku",
+                                        "messages": [{"role": "user", "content": fallback_prompt}]
+                                    }
+                                )
+                                
+                                if response.is_success:
+                                    result = response.json()
+                                    ai_response = result["choices"][0]["message"]["content"]
+                                    used_provider = "openrouter (fallback - text only)"
+                                    print(f"✓ Successfully used OpenRouter as fallback for note question")
+                                else:
+                                    raise HTTPException(status_code=500, detail=f"OpenRouter fallback failed: {response.status_code}")
+                        except Exception as fallback_error:
+                            raise HTTPException(
+                                status_code=503,
+                                detail=f"Gemini quota exceeded and OpenRouter fallback failed: {str(fallback_error)}"
+                            )
+                    else:
+                        raise HTTPException(
+                            status_code=503,
+                            detail="Gemini quota exceeded. Please configure OPENROUTER_API_KEY for automatic fallback."
+                        )
+                else:
+                    # Re-raise if not a quota error
+                    raise HTTPException(status_code=500, detail=f"Gemini API error: {error_str}")
+        else:
+            # Use OpenRouter directly if specified (Text only)
+            fallback_prompt = prompt_text
+            if request.note_pdf_url:
+               fallback_prompt += "\n\n(Note: PDF attachment not supported with this provider yet, answering based on text content only.)"
+
+            api_key = os.getenv("OPENROUTER_API_KEY")
+            if not api_key:
+                raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
+            
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "anthropic/claude-3-haiku",
+                        "messages": [{"role": "user", "content": fallback_prompt}]
+                    }
+                )
+                
+                if not response.is_success:
+                    raise HTTPException(status_code=500, detail=f"OpenRouter API error: {response.status_code}")
+                
+                result = response.json()
+                ai_response = result["choices"][0]["message"]["content"]
+        
+        # Return the response
+        print(f"✓ AI note question answered using: {used_provider}")
+        return {"answer": ai_response}
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate answer: {str(e)}")
+
+class QuestionSolutionRequest(BaseModel):
+    question_title: str
+    question_content: str
+    question_type: str
+    api_provider: Optional[str] = "gemini"
+
+@app.post("/ai-question-solution")
+async def get_question_solution(request: QuestionSolutionRequest):
+    """
+    Generate a detailed solution for a question (theory or PYQ)
+    """
+    try:
+        # Prompt construction
+        prompt = f"""You are an expert tutor helping students with their questions.
+
+Question Title: {request.question_title}
+Question Type: {request.question_type}
+
+Question:
+{request.question_content}
+
+Please provide a comprehensive and detailed solution or answer to this question.
+- If it's a theory question, explain the concepts clearly.
+- If it's a Previous Year Question (PYQ), provide a model answer associated with standard marking schemes.
+- Use formatting (bullet points, bold text) to make it easy to read.
+"""
+
+        # Try Gemini first, fallback to OpenRouter on quota error
+        ai_response = None
+        used_provider = request.api_provider or "gemini"
+        
+        if used_provider == "gemini":
+            api_key = os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                raise HTTPException(status_code=500, detail="Gemini API key not configured")
+            
+            try:
+                client = genai.Client(api_key=api_key)
+                response = client.models.generate_content(
+                    model="gemini-3-flash-preview",
+                    contents=prompt
+                )
+                ai_response = response.text
+            except Exception as e:
+                # Check if it's a quota error
+                error_str = str(e)
+                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower():
+                    print(f"⚠️  Gemini quota exceeded for question solution, falling back to OpenRouter...")
+                    # Fallback to OpenRouter
+                    if os.getenv("OPENROUTER_API_KEY"):
+                        try:
+                            api_key = os.getenv("OPENROUTER_API_KEY")
+                            async with httpx.AsyncClient(timeout=60.0) as client:
+                                response = await client.post(
+                                    "https://openrouter.ai/api/v1/chat/completions",
+                                    headers={
+                                        "Authorization": f"Bearer {api_key}",
+                                        "Content-Type": "application/json"
+                                    },
+                                    json={
+                                        "model": "anthropic/claude-3-haiku",
+                                        "messages": [{"role": "user", "content": prompt}]
+                                    }
+                                )
+                                
+                                if response.is_success:
+                                    result = response.json()
+                                    ai_response = result["choices"][0]["message"]["content"]
+                                    used_provider = "openrouter (fallback)"
+                                    print(f"✓ Successfully used OpenRouter as fallback for question solution")
+                                else:
+                                    raise HTTPException(status_code=500, detail=f"OpenRouter fallback failed: {response.status_code}")
+                        except Exception as fallback_error:
+                            raise HTTPException(
+                                status_code=503,
+                                detail=f"Gemini quota exceeded and OpenRouter fallback failed: {str(fallback_error)}"
+                            )
+                    else:
+                        raise HTTPException(
+                            status_code=503,
+                            detail="Gemini quota exceeded. Please configure OPENROUTER_API_KEY for automatic fallback."
+                        )
+                else:
+                    # Re-raise if not a quota error
+                    raise HTTPException(status_code=500, detail=f"Gemini API error: {error_str}")
+        else:
+            # Use OpenRouter directly if specified
+            api_key = os.getenv("OPENROUTER_API_KEY")
+            if not api_key:
+                raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
+            
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "anthropic/claude-3-haiku",
+                        "messages": [{"role": "user", "content": prompt}]
+                    }
+                )
+                
+                if not response.is_success:
+                    raise HTTPException(status_code=500, detail=f"OpenRouter API error: {response.status_code}")
+                
+                result = response.json()
+                ai_response = result["choices"][0]["message"]["content"]
+        
+        # Return the response
+        print(f"✓ AI question solution generated using: {used_provider}")
+        return {"solution": ai_response}
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate solution: {str(e)}")
+
 @app.post("/ai-question")
 async def answer_question(request: AIQuestionRequest):
     """
@@ -658,7 +915,7 @@ If the question cannot be answered from the transcript, politely explain that th
             try:
                 client = genai.Client(api_key=api_key)
                 response = client.models.generate_content(
-                    model="gemini-2.0-flash-exp",
+                    model="gemini-3-flash-preview",
                     contents=prompt
                 )
                 ai_response = response.text
@@ -839,7 +1096,7 @@ Return ONLY a JSON array with this exact structure (no additional text):
             try:
                 client = genai.Client(api_key=api_key)
                 response = client.models.generate_content(
-                    model="gemini-2.0-flash-exp",
+                    model="gemini-3-flash-preview",
                     contents=prompt,
                     config=types.GenerateContentConfig(
                         response_mime_type="application/json"
